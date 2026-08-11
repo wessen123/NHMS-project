@@ -1,0 +1,452 @@
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <title>
+    Sales Evaluation Report
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="report.styles.css"
+  />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+  <!-- =====================================
+       HEADER
+  ====================================== -->
+
+  <div class="report-header">
+
+    <img
+      src="{{LOGO_PATH}}"
+      class="logo"
+    />
+
+    <div class="report-title">
+      Sales Evaluation Report
+    </div>
+
+    <div class="report-subtitle">
+      Professional Performance Analysis
+    </div>
+
+    <div class="info-grid">
+
+      <div class="info-row">
+        <span class="info-label">
+          Sales Representative:
+        </span>
+
+        {{SALES_REP_NAME}}
+      </div>
+
+      <div class="info-row">
+        <span class="info-label">
+          Community:
+        </span>
+
+        {{COMMUNITY_NAME}}
+      </div>
+
+      <div class="info-row">
+        <span class="info-label">
+          Evaluation ID:
+        </span>
+
+        {{EVALUATION_ID}}
+      </div>
+
+      <div class="info-row">
+        <span class="info-label">
+          Generated At:
+        </span>
+
+        {{GENERATED_AT}}
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- =====================================
+       SCORE
+  ====================================== -->
+
+  <div class="score-box">
+
+    <div class="score-label">
+      INDUSTRIAL STANDARD
+    </div>
+
+    <div class="score-value">
+      {{PERCENTAGE}}%
+    </div>
+
+    <div class="score-percentage">
+      Overall Performance
+    </div>
+
+  </div>
+
+  <!-- =====================================
+       EVALUATOR NOTE
+  ====================================== -->
+
+  <div class="section-title">
+    Evaluator Observation
+  </div>
+
+  <div class="evaluator-note">
+    {{EVALUATOR_NOTE}}
+  </div>
+
+  <!-- =====================================
+       SCORECARD
+  ====================================== -->
+
+  <div class="section-title">
+    Evaluation Scorecard
+  </div>
+
+  {{SCORECARD_HTML}}
+
+  <!-- =====================================
+       PAGE BREAK
+  ====================================== -->
+
+
+
+  <!-- =====================================
+       AI ANALYSIS
+  ====================================== -->
+
+  <div class="section-title">
+    Professional Coaching Analysis
+  </div>
+
+  {{AI_ANALYSIS_HTML}}
+
+  <!-- =====================================
+       CHART SECTION
+  ====================================== -->
+
+  <div class="chart-section">
+
+    <div class="chart-title">
+      Comparison Graph to Industry Averages
+    </div>
+
+    <div class="chart-wrapper">
+
+      <canvas
+        id="comparisonChart"
+        height="120"
+      ></canvas>
+
+    </div>
+
+  </div>
+
+  <!-- =====================================
+       FOOTER
+  ====================================== -->
+
+  <div class="footer">
+
+    Generated automatically by
+    Evaluation System
+
+  </div>
+
+  <!-- =====================================
+       CHART SCRIPT
+  ====================================== -->
+
+  <script>
+
+const chartData =
+  {{CHART_DATA}};
+
+const ctx =
+  document.getElementById(
+    "comparisonChart"
+  );
+
+console.log(
+  "CHART VERSION:",
+  Chart.version
+);
+
+new Chart(ctx, {
+
+  type: "bar",
+
+  plugins: [
+
+    {
+
+      id: "valueLabels",
+
+      afterDatasetsDraw(chart) {
+
+        const { ctx } = chart;
+
+        ctx.save();
+
+        chart.data.datasets.forEach(
+          (dataset, datasetIndex) => {
+
+            const meta =
+              chart.getDatasetMeta(
+                datasetIndex
+              );
+
+            meta.data.forEach(
+              (bar, index) => {
+
+                const value =
+                  dataset.data[index];
+
+                ctx.fillStyle =
+                  "#000";
+
+                ctx.font =
+                  "bold 9px Arial";
+
+                ctx.textAlign =
+                  "center";
+
+                ctx.fillText(
+
+                  `${value}%`,
+
+                  bar.x,
+
+                  bar.y - 4
+
+                );
+
+              }
+            );
+
+          }
+        );
+
+        ctx.restore();
+
+      }
+
+    }
+
+  ],
+
+  data: {
+
+    labels:
+      chartData.map(
+        x => x.category
+      ),
+
+    datasets: [
+
+      {
+
+        label:
+          "Industry Average",
+
+        data:
+          chartData.map(
+            x => x.industry
+          ),
+
+        backgroundColor:
+          "#FCEF98",
+
+        borderColor:
+          "#999",
+
+        borderWidth: 1,
+
+        categoryPercentage: 0.7,
+
+        barPercentage: 0.8
+
+      },
+
+      {
+
+        label:
+          "Sales Representative",
+
+        data:
+          chartData.map(
+            x => x.salesRep
+          ),
+
+        backgroundColor:
+          "#993866",
+
+        borderColor:
+          "#555",
+
+        borderWidth: 1,
+
+        categoryPercentage: 0.7,
+
+        barPercentage: 0.8
+
+      }
+
+    ]
+
+  },
+
+  options: {
+
+    responsive: true,
+
+    maintainAspectRatio: false,
+
+    animation: false,
+
+    layout: {
+
+      padding: {
+
+        top: 20,
+
+        right: 10,
+
+        left: 10,
+
+        bottom: 10
+
+      }
+
+    },
+
+    plugins: {
+
+      legend: {
+
+        position: "top",
+
+        labels: {
+
+          boxWidth: 12,
+
+          padding: 15,
+
+          font: {
+
+            size: 11
+
+          }
+
+        }
+
+      }
+
+    },
+
+    scales: {
+
+      x: {
+
+        grid: {
+
+          display: false
+
+        },
+
+        title: {
+
+          display: true,
+
+          text:
+            "Evaluation Category",
+
+          font: {
+
+            size: 12,
+
+            weight: "bold"
+
+          }
+
+        },
+
+        ticks: {
+
+          font: {
+
+            size: 10
+
+          }
+
+        }
+
+      },
+
+      y: {
+
+        beginAtZero: true,
+
+        max: 100,
+
+        ticks: {
+
+          stepSize: 10,
+
+          callback: value =>
+            value + "%",
+
+          font: {
+
+            size: 10
+
+          }
+
+        },
+
+        title: {
+
+          display: true,
+
+          text:
+            "Percentage Score",
+
+          font: {
+
+            size: 12,
+
+            weight: "bold"
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+});
+
+</script>
+
+</body>
+
+</html>

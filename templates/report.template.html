@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <title>Sales Evaluation Report</title>
+
+  <link
+    rel="stylesheet"
+    href="report.styles.css"
+  />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+<!-- ===================================== -->
+<!-- COVER PAGE -->
+<!-- ===================================== -->
+
+<div class="cover-page">
+
+  <div class="cover-logo">
+
+    <img
+      src="{{LOGO_PATH}}"
+      class="cover-logo-image"
+    />
+
+  </div>
+
+  <div class="cover-company">
+
+    Personnel Profiles Serving
+    the New Home Industry
+    since 1971
+
+  </div>
+
+  <div class="cover-website">
+
+    www.NewHomeMysteryShops.com
+
+  </div>
+
+  <div class="cover-confidential">
+
+    CONFIDENTIAL
+
+  </div>
+
+  <div class="cover-rep">
+
+    {{SALES_REP_NAME}}
+
+  </div>
+
+  <div class="cover-community">
+
+    {{COMMUNITY_NAME}}
+
+  </div>
+
+  <div class="cover-date">
+
+    {{REPORT_DATE}}
+
+  </div>
+
+</div>
+
+<div class="page-break"></div>
+  <!-- ================================================= -->
+
+  <!-- PAGE 1 -->
+
+  <!-- ================================================= -->
+
+  <div class="report-header">
+
+
+<img
+  src="{{LOGO_PATH}}"
+  class="logo"
+/>
+
+<div class="video-link">
+  VIDEO LINK
+</div>
+
+
+  </div>
+
+
+
+
+
+
+
+
+{{SCORECARD_HTML}}
+
+  <div class="footer">
+    © Personnel Profiles, Inc.
+  </div>
+
+  <!-- ================================================= -->
+
+  <!-- PAGE BREAK -->
+
+  <!-- ================================================= -->
+
+  <div class="page-break"></div>
+
+  <!-- ================================================= -->
+
+  <!-- PAGE 2 -->
+
+  <!-- ================================================= -->
+
+  <div class="analysis-header">
+
+
+<div class="analysis-name">
+  Sales Representative (SR): {{SALES_REP_NAME}}
+</div>
+
+<div class="analysis-date">
+  Evaluation Date: {{GENERATED_AT}}
+</div>
+
+
+  </div>
+
+  <div class="analysis-main-title">
+    Performance Breakdown:
+    Strengths & Opportunities
+  </div>
+
+  <div class="executive-summary">
+    {{EXECUTIVE_SUMMARY}}
+  </div>
+
+{{AI_ANALYSIS_HTML}}
+
+  <!-- ================================================= -->
+
+  <!-- PAGE BREAK -->
+
+  <!-- ================================================= -->
+
+  <div class="page-break"></div>
+
+  <!-- ================================================= -->
+
+  <!-- PAGE 3 -->
+
+  <!-- ================================================= -->
+
+  <div class="chart-page-title">
+    {{SALES_REP_NAME}}
+  </div>
+
+  <div class="chart-title">
+    Comparison Graph to Industry Averages
+  </div>
+
+  <div class="chart-wrapper">
+
+
+<canvas
+  id="comparisonChart"
+  height="120"
+></canvas>
+
+
+  </div>
+
+  <div class="footer">
+    © Personnel Profiles, Inc.
+  </div>
+
+  <script>
+
+const chartData =
+  {{CHART_DATA}};
+
+const ctx =
+  document.getElementById(
+    "comparisonChart"
+  );
+
+console.log(
+  "CHART VERSION:",
+  Chart.version
+);
+
+new Chart(ctx, {
+
+  type: "bar",
+
+  plugins: [
+
+    {
+
+      id: "valueLabels",
+
+      afterDatasetsDraw(chart) {
+
+        const { ctx } = chart;
+
+        ctx.save();
+
+        chart.data.datasets.forEach(
+          (dataset, datasetIndex) => {
+
+            const meta =
+              chart.getDatasetMeta(
+                datasetIndex
+              );
+
+            meta.data.forEach(
+              (bar, index) => {
+
+                const value =
+                  dataset.data[index];
+
+                ctx.fillStyle =
+                  "#000";
+
+                ctx.font =
+                  "bold 9px Arial";
+
+                ctx.textAlign =
+                  "center";
+
+                ctx.fillText(
+
+                  `${value}%`,
+
+                  bar.x,
+
+                  bar.y - 4
+
+                );
+
+              }
+            );
+
+          }
+        );
+
+        ctx.restore();
+
+      }
+
+    }
+
+  ],
+
+  data: {
+
+    labels:
+      chartData.map(
+        x => x.category
+      ),
+
+    datasets: [
+
+      {
+
+        label:
+          "Industry Average",
+
+        data:
+          chartData.map(
+            x => x.industry
+          ),
+
+        backgroundColor:
+          "#FCEF98",
+
+        borderColor:
+          "#999",
+
+        borderWidth: 1,
+
+        categoryPercentage: 0.7,
+
+        barPercentage: 0.8
+
+      },
+
+      {
+
+        label:
+          "Sales Representative",
+
+        data:
+          chartData.map(
+            x => x.salesRep
+          ),
+
+        backgroundColor:
+          "#993866",
+
+        borderColor:
+          "#555",
+
+        borderWidth: 1,
+
+        categoryPercentage: 0.7,
+
+        barPercentage: 0.8
+
+      }
+
+    ]
+
+  },
+
+  options: {
+
+    responsive: true,
+
+    maintainAspectRatio: false,
+
+    animation: false,
+
+    layout: {
+
+      padding: {
+
+        top: 20,
+
+        right: 10,
+
+        left: 10,
+
+        bottom: 10
+
+      }
+
+    },
+
+    plugins: {
+
+      legend: {
+
+        position: "top",
+
+        labels: {
+
+          boxWidth: 12,
+
+          padding: 15,
+
+          font: {
+
+            size: 11
+
+          }
+
+        }
+
+      }
+
+    },
+
+    scales: {
+
+      x: {
+
+        grid: {
+
+          display: false
+
+        },
+
+        title: {
+
+          display: true,
+
+          text:
+            "Evaluation Category",
+
+          font: {
+
+            size: 12,
+
+            weight: "bold"
+
+          }
+
+        },
+
+        ticks: {
+
+          font: {
+
+            size: 10
+
+          }
+
+        }
+
+      },
+
+      y: {
+
+        beginAtZero: true,
+
+        max: 100,
+
+        ticks: {
+
+          stepSize: 10,
+
+          callback: value =>
+            value + "%",
+
+          font: {
+
+            size: 10
+
+          }
+
+        },
+
+        title: {
+
+          display: true,
+
+          text:
+            "Percentage Score",
+
+          font: {
+
+            size: 12,
+
+            weight: "bold"
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+});
+
+</script>
+</body>
+
+</html>

@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 30px;
+}
+
+.page {
+  width: 100%;
+}
+
+h1 {
+  text-align: center;
+}
+
+.summary-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 15px;
+
+  margin-bottom: 30px;
+}
+
+.card {
+  border: 1px solid #ddd;
+
+  padding: 15px;
+
+  border-radius: 8px;
+
+  text-align: center;
+}
+
+.big {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  margin-bottom: 30px;
+}
+
+table th,
+table td {
+  border: 1px solid #ccc;
+
+  padding: 10px;
+}
+
+table th {
+  background: #f4f4f4;
+}

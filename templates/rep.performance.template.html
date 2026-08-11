@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Rep Performance Report</title>
+
+  <link
+    rel="stylesheet"
+    href="rep.performance.styles.css"
+  />
+</head>
+
+<body>
+
+  <div class="page">
+
+    <h1>
+      Sales Rep Performance Report
+    </h1>
+
+    <h2>
+      {{SALES_REP}}
+    </h2>
+
+    <div class="summary-grid">
+
+      <div class="card">
+        <h3>Average Score</h3>
+        <div class="big">
+          {{AVG_SCORE}}%
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Total Evaluations</h3>
+        <div class="big">
+          {{TOTAL_EVALUATIONS}}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Best Score</h3>
+        <div class="big">
+          {{BEST_SCORE}}%
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Worst Score</h3>
+        <div class="big">
+          {{WORST_SCORE}}%
+        </div>
+      </div>
+
+    </div>
+
+    <h2>
+      Average Scorecard
+    </h2>
+
+    {{SCORECARD_TABLE}}
+
+    <h2>
+      Executive Summary
+    </h2>
+
+    <p>
+      {{AI_SUMMARY}}
+    </p>
+
+    <h2>
+      Approach Analysis
+    </h2>
+
+    <p>
+      {{AI_APPROACH}}
+    </p>
+
+    <h2>
+      Qualifying Analysis
+    </h2>
+
+    <p>
+      {{AI_QUALIFYING}}
+    </p>
+
+    <h2>
+      Demonstration Analysis
+    </h2>
+
+    <p>
+      {{AI_DEMONSTRATION}}
+    </p>
+
+    <h2>
+      Presentation Analysis
+    </h2>
+
+    <p>
+      {{AI_PRESENTATION}}
+    </p>
+
+    <h2>
+      Closing Analysis
+    </h2>
+
+    <p>
+      {{AI_CLOSING}}
+    </p>
+
+    <h2>
+      Attitude Analysis
+    </h2>
+
+    <p>
+      {{AI_ATTITUDE}}
+    </p>
+
+    <h2>
+      Evaluation History
+    </h2>
+
+    {{HISTORY_TABLE}}
+
+  </div>
+
+</body>
+</html>

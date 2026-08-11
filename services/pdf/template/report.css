@@ -1,0 +1,24 @@
+body {
+  font-family: Arial;
+  margin: 0;
+  padding: 0;
+}
+
+.page {
+  page-break-after: always;
+  padding: 40px;
+}
+
+.cover {
+  text-align: center;
+  margin-top: 150px;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h2 {
+  margin-top: 20px;
+  font-size: 22px;
+}

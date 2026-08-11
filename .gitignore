@@ -1,0 +1,26 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node dependencies
+node_modules/
+
+# Uploads and generated files
+uploads/
+temp/
+
+# Generated reports
+*.pdf
+
+# Logs
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Credentials / certificates
+*.pem
+*.key
