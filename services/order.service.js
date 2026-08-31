@@ -1,3 +1,4 @@
+
 // services/order.service.js
 
 const NocoBaseService = require("./nocobase.service");
@@ -28,6 +29,7 @@ exports.processOrder = async (orderId) => {
     console.log("✅ ORDER FOUND");
     console.log(order.order_no);
 
+
     /* =================================
        CUSTOMER
     ================================= */
@@ -53,6 +55,7 @@ exports.processOrder = async (orderId) => {
     console.log("✅ CUSTOMER");
     console.log(customerFolder);
 
+
     /* =================================
        SHOPS
     ================================= */
@@ -65,6 +68,7 @@ exports.processOrder = async (orderId) => {
 
     const results = [];
 
+
     /* =================================
        PROCESS EACH SHOP
     ================================= */
@@ -76,9 +80,11 @@ exports.processOrder = async (orderId) => {
         console.log("🏠 SHOP:", shop.id);
         console.log("---------------------------------\n");
 
+
         /* ==============================
            SHOP NUMBER
         ============================== */
+
         const shopNo =
           cleanName(
             shop.shop_no ||
@@ -86,14 +92,17 @@ exports.processOrder = async (orderId) => {
             `SHOP-${shop.id}`
           );
 
+
         /* ==============================
            ORDER NUMBER
         ============================== */
+
         const orderNo =
           cleanName(
             order.order_no ||
             `ORD-${order.id}`
           );
+
 
         /* ==============================
            SHOP DROPBOX FOLDER
@@ -104,6 +113,7 @@ exports.processOrder = async (orderId) => {
 
         console.log("📁 SHOP FOLDER:");
         console.log(folderPath);
+
 
         /* ==============================
            CREATE SHOP FOLDER
@@ -116,6 +126,7 @@ exports.processOrder = async (orderId) => {
         console.log(
           "✅ SHOP FOLDER READY"
         );
+
 
         /* ==============================
            EDITED VIDEOS FOLDER
@@ -132,6 +143,7 @@ exports.processOrder = async (orderId) => {
           editedVideosFolder
         );
 
+
         await DropboxService.createFolder(
           editedVideosFolder
         );
@@ -140,16 +152,18 @@ exports.processOrder = async (orderId) => {
           "✅ EDITED VIDEOS FOLDER READY"
         );
 
-        /* ==============================
-           CREATE SHOPPER FILE REQUEST
+
+        /* =================================================
+           SHOPPER FILE REQUEST
            
-           IMPORTANT:
-           Shopper uploads remain in
-           the main shop folder.
+           Shopper uploads go into:
            
-           We DO NOT use the Edited Videos
-           folder for shopper uploads.
-        ============================== */
+           /SHOP
+           
+           NOT:
+           
+           /SHOP/Edited Videos
+        ================================================= */
 
         const fileRequest =
           await DropboxService.createFileRequest(
@@ -158,22 +172,26 @@ exports.processOrder = async (orderId) => {
           );
 
         console.log(
-          "✅ FILE REQUEST CREATED"
+          "✅ SHOPPER FILE REQUEST CREATED"
         );
 
         console.log(
-          "FILE REQUEST ID:",
+          "SHOPPER FILE REQUEST ID:",
           fileRequest.file_request_id
         );
 
         console.log(
-          "UPLOAD LINK:",
+          "SHOPPER UPLOAD LINK:",
           fileRequest.upload_link
         );
 
-        /* ==============================
-           CREATE UPLOAD REQUEST RECORD
-        ============================== */
+
+        /* =================================================
+           CREATE SHOPPER UPLOAD REQUEST RECORD
+           
+           Collection:
+           upload_requests
+        ================================================= */
 
         const uploadRequest =
           await NocoBaseService.createUploadRequest({
@@ -197,14 +215,85 @@ exports.processOrder = async (orderId) => {
               "active"
           });
 
+
         console.log(
-          "✅ UPLOAD REQUEST CREATED"
+          "✅ SHOPPER UPLOAD REQUEST RECORD CREATED"
         );
 
         console.log(
-          "UPLOAD REQUEST ID:",
+          "SHOPPER UPLOAD REQUEST ID:",
           uploadRequest.id
         );
+
+
+        /* =================================================
+           EDITED VIDEO FILE REQUEST
+           
+           Editor uploads go into:
+           
+           /SHOP/Edited Videos
+        ================================================= */
+
+        const editedFileRequest =
+          await DropboxService.createFileRequest(
+            `Edited Video ${shopNo}`,
+            editedVideosFolder
+          );
+
+        console.log(
+          "✅ EDITED VIDEO FILE REQUEST CREATED"
+        );
+
+        console.log(
+          "EDITED FILE REQUEST ID:",
+          editedFileRequest.file_request_id
+        );
+
+        console.log(
+          "EDITED VIDEO UPLOAD LINK:",
+          editedFileRequest.upload_link
+        );
+
+
+        /* =================================================
+           CREATE EDITED VIDEO UPLOAD REQUEST RECORD
+           
+           Collection:
+           edited_video_upload_requests
+        ================================================= */
+
+        const editedUploadRequest =
+          await NocoBaseService.createEditedVideoUploadRequest({
+
+            nhms_shop_id:
+              Number(shop.id),
+
+            upload_folder:
+              editedVideosFolder,
+
+            upload_link:
+              editedFileRequest.upload_link,
+
+            file_request_id:
+              editedFileRequest.file_request_id,
+
+            provider:
+              "dropbox",
+
+            status:
+              "active"
+          });
+
+
+        console.log(
+          "✅ EDITED VIDEO UPLOAD REQUEST RECORD CREATED"
+        );
+
+        console.log(
+          "EDITED REQUEST ID:",
+          editedUploadRequest.id
+        );
+
 
         /* ==============================
            SHOP RESULT
@@ -221,23 +310,41 @@ exports.processOrder = async (orderId) => {
           shop_no:
             shopNo,
 
+
+          /* =========================
+             SHOPPER UPLOAD
+          ========================= */
+
           upload_request_id:
             uploadRequest.id,
 
-          /* Shopper upload folder */
           upload_folder:
             folderPath,
-
-          /* New edited video folder */
-          edited_videos_folder:
-            editedVideosFolder,
 
           upload_link:
             fileRequest.upload_link,
 
           file_request_id:
-            fileRequest.file_request_id
+            fileRequest.file_request_id,
+
+
+          /* =========================
+             EDITED VIDEO UPLOAD
+          ========================= */
+
+          edited_video_upload_request_id:
+            editedUploadRequest.id,
+
+          edited_videos_folder:
+            editedVideosFolder,
+
+          edited_video_upload_link:
+            editedFileRequest.upload_link,
+
+          edited_video_file_request_id:
+            editedFileRequest.file_request_id
         });
+
 
       } catch (shopError) {
 
@@ -249,6 +356,7 @@ exports.processOrder = async (orderId) => {
           shopError.response?.data ||
           shopError.message
         );
+
 
         results.push({
 
@@ -265,6 +373,7 @@ exports.processOrder = async (orderId) => {
       }
     }
 
+
     /* =================================
        ORDER COMPLETE
     ================================= */
@@ -273,6 +382,7 @@ exports.processOrder = async (orderId) => {
     console.log("✅ ORDER COMPLETE");
     console.log("=================================\n");
 
+
     console.log(
       JSON.stringify(
         results,
@@ -280,6 +390,7 @@ exports.processOrder = async (orderId) => {
         2
       )
     );
+
 
     return {
 
@@ -301,16 +412,19 @@ exports.processOrder = async (orderId) => {
       results
     };
 
+
   } catch (error) {
 
     console.error("\n=================================");
     console.error("❌ PROCESS ORDER FAILED");
     console.error("=================================\n");
 
+
     console.error(
       error.response?.data ||
       error.message
     );
+
 
     throw error;
   }

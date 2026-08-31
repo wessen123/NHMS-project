@@ -900,6 +900,210 @@ async createEditedVideo(data) {
 }
 
 
+
+/* =======================================================
+   GET EDITED VIDEO UPLOAD REQUEST BY SHOP ID
+
+   Collection:
+   edited_video_upload_requests
+
+   Used to check if an edited-video upload request
+   already exists for this shop.
+======================================================= */
+
+async getEditedVideoUploadRequestByShopId(shopId) {
+
+  console.log("\n=========================");
+  console.log("🔍 FIND EDITED VIDEO UPLOAD REQUEST");
+  console.log("SHOP ID:", shopId);
+  console.log("=========================\n");
+
+  const res = await axios.get(
+
+    `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:list`,
+
+    {
+      params: {
+
+        filter: {
+          nhms_shop_id:
+            Number(shopId)
+        },
+
+        pageSize: 1
+      },
+
+      headers:
+        nocoHeaders()
+    }
+  );
+
+  const request =
+    res.data?.data?.[0] || null;
+
+  if (request) {
+
+    console.log(
+      "✅ EDITED VIDEO UPLOAD REQUEST FOUND"
+    );
+
+    console.log(
+      "REQUEST ID:",
+      request.id
+    );
+
+    console.log(
+      "UPLOAD FOLDER:",
+      request.upload_folder
+    );
+
+    console.log(
+      "UPLOAD LINK:",
+      request.upload_link
+    );
+
+    console.log(
+      "FILE REQUEST ID:",
+      request.file_request_id
+    );
+
+    console.log(
+      "STATUS:",
+      request.status
+    );
+
+  } else {
+
+    console.log(
+      "ℹ️ NO EDITED VIDEO UPLOAD REQUEST FOUND"
+    );
+  }
+
+  return request;
+}
+
+
+/* =======================================================
+   CREATE EDITED VIDEO UPLOAD REQUEST
+
+   Collection:
+   edited_video_upload_requests
+
+   Stores:
+   - Shop ID
+   - Edited Videos Dropbox folder
+   - Dropbox upload link
+   - Dropbox file request ID
+   - Provider
+   - Status
+======================================================= */
+
+async createEditedVideoUploadRequest(data) {
+
+  console.log("\n=========================");
+  console.log("📤 CREATE EDITED VIDEO UPLOAD REQUEST");
+  console.log("=========================\n");
+
+  console.log(
+    JSON.stringify(
+      data,
+      null,
+      2
+    )
+  );
+
+  const res =
+    await axios.post(
+
+      `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:create`,
+
+      data,
+
+      {
+        headers:
+          nocoHeaders()
+      }
+    );
+
+  console.log(
+    "✅ EDITED VIDEO UPLOAD REQUEST CREATED"
+  );
+
+  console.log(
+    JSON.stringify(
+      res.data,
+      null,
+      2
+    )
+  );
+
+  return (
+    res.data?.data ||
+    res.data
+  );
+}
+
+
+/* =======================================================
+   UPDATE EDITED VIDEO UPLOAD REQUEST
+
+   Used when:
+   - status changes
+   - upload link changes
+   - folder changes
+   - file request ID changes
+======================================================= */
+
+async updateEditedVideoUploadRequest(
+  id,
+  values
+) {
+
+  console.log("\n=========================");
+  console.log("✏️ UPDATE EDITED VIDEO UPLOAD REQUEST");
+  console.log("REQUEST ID:", id);
+  console.log("=========================\n");
+
+  console.log(
+    JSON.stringify(
+      values,
+      null,
+      2
+    )
+  );
+
+  const res =
+    await axios.post(
+
+      `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:update?filterByTk=${id}`,
+
+      values,
+
+      {
+        headers:
+          nocoHeaders()
+      }
+    );
+
+  console.log(
+    "✅ EDITED VIDEO UPLOAD REQUEST UPDATED"
+  );
+
+  console.log(
+    JSON.stringify(
+      res.data,
+      null,
+      2
+    )
+  );
+
+  return (
+    res.data?.data ||
+    res.data
+  );
+}
+
+
 /* =========================
    UPDATE EDITED VIDEO
 ========================= */
