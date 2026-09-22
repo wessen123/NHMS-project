@@ -15,53 +15,45 @@ const {
 /* =========================================================
    EDITED VIDEO UPLOAD SERVICE
 
-   PURPOSE:
+   PURPOSE
 
-   Create ONE Dropbox upload request for ONE NHMS shop.
+   Create and manage ONE Dropbox edited-video upload request
+   for ONE NHMS shop.
 
-   The request is stored in:
+   IMPORTANT
 
-   edited_video_upload_requests
+   The Dropbox API folder path is stored relative to the
+   configured Dropbox application's accessible root.
 
-   Fields saved:
+   Do NOT hardcode:
 
-   - nhms_shop_id
-   - upload_folder
-   - upload_link
-   - file_request_id
-   - provider
-   - status
+   /Apps/NHMS/
 
-   Status is currently ALWAYS:
+   unless the Dropbox API account requires that prefix.
 
-   active
-
-
-   FLOW:
+   WORKFLOW
 
    Shop
       ↓
-   Check existing upload request
+   Validate Shop ID
       ↓
-   If exists → return existing request
+   Check Existing Upload Request
       ↓
-   If not
+   Get Shop
       ↓
-   Get shop
+   Get Order
       ↓
-   Get order
+   Get Customer
       ↓
-   Get customer
+   Build Dropbox Folder
       ↓
-   Build Edited Videos folder
-      ↓
-   Create Dropbox folder
+   Create / Verify Dropbox Folder
       ↓
    Create Dropbox File Request
       ↓
-   Save request in NocoBase
+   Save Upload Request in NocoBase
       ↓
-   status = active
+   Return Upload Request
 ========================================================= */
 
 
@@ -74,107 +66,469 @@ class EditedVideoUploadService {
 
   async createForShop(shopId) {
 
+    const normalizedShopId =
+      this.validateShopId(shopId);
+
+
     console.log("\n========================================");
-    console.log("🎬 CREATE EDITED VIDEO UPLOAD REQUEST");
-    console.log("SHOP ID:", shopId);
+    console.log("🎬 EDITED VIDEO UPLOAD REQUEST");
+    console.log(
+      "SHOP ID:",
+      normalizedShopId
+    );
     console.log("========================================\n");
 
 
-    /* =====================================================
-       1. VALIDATE SHOP ID
-    ===================================================== */
-
-    if (!shopId) {
-
-      throw new Error(
-        "Shop ID is required"
-      );
-
-    }
+    try {
 
 
-    /* =====================================================
-       2. CHECK IF REQUEST ALREADY EXISTS
-       
-       IMPORTANT:
-       
-       One shop = one edited video upload request.
-       
-       If one already exists, DO NOT create another
-       Dropbox File Request.
-    ===================================================== */
+      /* ===================================================
+         1. LOAD SHOP / ORDER / CUSTOMER
+      =================================================== */
 
-    console.log(
-      "🔍 CHECKING EXISTING EDITED VIDEO UPLOAD REQUEST..."
-    );
-
-
-    const existingRequest =
-      await NocoBaseService
-        .getEditedVideoUploadRequestByShopId(
-          shopId
+      const context =
+        await this.loadShopContext(
+          normalizedShopId
         );
 
 
-    if (existingRequest) {
+      const {
+        shop,
+        order,
+        customer
+      } = context;
+
+
+      /* ===================================================
+         2. BUILD CORRECT DROPBOX FOLDER
+      =================================================== */
+
+      const uploadFolder =
+        this.buildDropboxFolder(
+          customer,
+          order,
+          shop
+        );
+
 
       console.log(
-        "\nℹ️ EDITED VIDEO UPLOAD REQUEST ALREADY EXISTS"
+        "📁 EXPECTED DROPBOX FOLDER:"
       );
 
       console.log(
-        "REQUEST ID:",
-        existingRequest.id
+        uploadFolder
       );
 
-      console.log(
-        "UPLOAD FOLDER:",
-        existingRequest.upload_folder
-      );
+
+      /* ===================================================
+         3. CHECK EXISTING REQUEST
+      =================================================== */
+
+      const existingRequest =
+        await this.getExistingRequest(
+          normalizedShopId
+        );
+
+
+      if (existingRequest) {
+
+
+        console.log(
+          "ℹ️ EXISTING EDITED VIDEO UPLOAD REQUEST FOUND"
+        );
+
+
+        console.log(
+          "REQUEST ID:",
+          existingRequest.id
+        );
+
+
+        console.log(
+          "CURRENT FOLDER:",
+          existingRequest.upload_folder
+        );
+
+
+        /*
+         * If the stored path matches the correct path,
+         * return the existing request.
+         */
+
+        if (
+          existingRequest.upload_folder ===
+          uploadFolder
+        ) {
+
+          console.log(
+            "✅ EXISTING REQUEST PATH IS CORRECT"
+          );
+
+
+          return existingRequest;
+
+        }
+
+
+        /*
+         * Existing request contains an old or incorrect path.
+         *
+         * Update the NocoBase record.
+         */
+
+        console.log(
+          "⚠️ EXISTING REQUEST HAS DIFFERENT FOLDER PATH"
+        );
+
+
+        console.log(
+          "OLD:",
+          existingRequest.upload_folder
+        );
+
+
+        console.log(
+          "NEW:",
+          uploadFolder
+        );
+
+
+        await DropboxService.createFolder(
+          uploadFolder
+        );
+
+
+        /*
+         * IMPORTANT:
+         *
+         * A Dropbox File Request cannot simply be assumed
+         * to point to the new folder.
+         *
+         * Create a new request for the correct destination.
+         */
+
+        const shopFolderName =
+          this.buildShopFolder(
+            shop
+          );
+
+
+        const fileRequest =
+          await DropboxService.createFileRequest(
+            `Edited Video - ${shopFolderName}`,
+            uploadFolder
+          );
+
+
+        this.validateFileRequest(
+          fileRequest
+        );
+
+
+        const updatedRequest =
+          await NocoBaseService
+            .updateEditedVideoUploadRequest(
+              existingRequest.id,
+              {
+
+                upload_folder:
+                  uploadFolder,
+
+                upload_link:
+                  fileRequest.upload_link,
+
+                file_request_id:
+                  fileRequest.file_request_id,
+
+                provider:
+                  "dropbox",
+
+                status:
+                  "active"
+
+              }
+            );
+
+
+        console.log(
+          "✅ EXISTING EDITED VIDEO REQUEST UPDATED"
+        );
+
+
+        return (
+          updatedRequest ||
+          {
+            ...existingRequest,
+
+            upload_folder:
+              uploadFolder,
+
+            upload_link:
+              fileRequest.upload_link,
+
+            file_request_id:
+              fileRequest.file_request_id,
+
+            provider:
+              "dropbox",
+
+            status:
+              "active"
+
+          }
+        );
+
+      }
+
+
+      /* ===================================================
+         4. CREATE / VERIFY DROPBOX FOLDER
+      =================================================== */
 
       console.log(
-        "UPLOAD LINK:",
-        existingRequest.upload_link
+        "📁 VERIFYING DROPBOX FOLDER..."
       );
+
+
+      await DropboxService.createFolder(
+        uploadFolder
+      );
+
+
+      console.log(
+        "✅ DROPBOX FOLDER READY"
+      );
+
+
+      /* ===================================================
+         5. CREATE DROPBOX FILE REQUEST
+      =================================================== */
+
+      console.log(
+        "📤 CREATING DROPBOX FILE REQUEST..."
+      );
+
+
+      const shopFolderName =
+        this.buildShopFolder(
+          shop
+        );
+
+
+      const fileRequest =
+        await DropboxService.createFileRequest(
+          `Edited Video - ${shopFolderName}`,
+          uploadFolder
+        );
+
+
+      this.validateFileRequest(
+        fileRequest
+      );
+
+
+      console.log(
+        "✅ DROPBOX FILE REQUEST CREATED"
+      );
+
 
       console.log(
         "FILE REQUEST ID:",
-        existingRequest.file_request_id
+        fileRequest.file_request_id
       );
 
+
+      /* ===================================================
+         6. PREPARE NOCOBASE DATA
+      =================================================== */
+
+      const uploadRequestData =
+        this.buildUploadRequestData({
+
+          shop,
+
+          uploadFolder,
+
+          fileRequest
+
+        });
+
+
+      /* ===================================================
+         7. SAVE IN NOCOBASE
+      =================================================== */
+
       console.log(
-        "PROVIDER:",
-        existingRequest.provider
+        "💾 SAVING EDITED VIDEO UPLOAD REQUEST..."
       );
+
+
+      const createdRequest =
+        await NocoBaseService
+          .createEditedVideoUploadRequest(
+            uploadRequestData
+          );
+
+
+      if (!createdRequest) {
+
+        throw new Error(
+          "NocoBase did not return the created edited video upload request"
+        );
+
+      }
+
+
+      /* ===================================================
+         8. SUCCESS
+      =================================================== */
+
+      console.log("\n========================================");
+      console.log("🎉 EDITED VIDEO UPLOAD REQUEST READY");
+      console.log("========================================");
+
+
+      console.log(
+        "REQUEST ID:",
+        createdRequest.id
+      );
+
+
+      console.log(
+        "SHOP ID:",
+        createdRequest.nhms_shop_id
+      );
+
+
+      console.log(
+        "FOLDER:",
+        createdRequest.upload_folder
+      );
+
 
       console.log(
         "STATUS:",
-        existingRequest.status
+        createdRequest.status
       );
 
-      return existingRequest;
+
+      console.log(
+        "========================================\n"
+      );
+
+
+      return createdRequest;
+
+
+    } catch (error) {
+
+
+      console.error(
+        "\n========================================"
+      );
+
+
+      console.error(
+        "❌ EDITED VIDEO UPLOAD REQUEST FAILED"
+      );
+
+
+      console.error(
+        "SHOP ID:",
+        normalizedShopId
+      );
+
+
+      console.error(
+        "ERROR:",
+        error.message
+      );
+
+
+      console.error(
+        "========================================\n"
+      );
+
+
+      throw error;
+
+    }
+
+  }
+
+
+  /* =======================================================
+     VALIDATE SHOP ID
+  ======================================================= */
+
+  validateShopId(shopId) {
+
+    const normalizedShopId =
+      Number(shopId);
+
+
+    if (
+
+      !Number.isInteger(
+        normalizedShopId
+      )
+
+      ||
+
+      normalizedShopId <= 0
+
+    ) {
+
+      throw new Error(
+        "A valid Shop ID is required"
+      );
+
     }
 
 
-    /* =====================================================
-       3. GET ALL SHOPS
-       
-       We use the existing NocoBase service.
-    ===================================================== */
+    return normalizedShopId;
+
+  }
+
+
+  /* =======================================================
+     GET EXISTING UPLOAD REQUEST
+  ======================================================= */
+
+  async getExistingRequest(shopId) {
 
     console.log(
-      "\n🏠 GETTING SHOP..."
+      "🔍 CHECKING EXISTING UPLOAD REQUEST..."
     );
 
 
-    const shops =
-      await NocoBaseService.getAllShops();
+    return await NocoBaseService
+      .getEditedVideoUploadRequestByShopId(
+        shopId
+      );
+
+  }
+
+
+  /* =======================================================
+     LOAD SHOP CONTEXT
+  ======================================================= */
+
+  async loadShopContext(shopId) {
+
+
+    /* =====================================================
+       GET SHOP
+    ===================================================== */
+
+    console.log(
+      "🏠 GETTING SHOP..."
+    );
 
 
     const shop =
-      shops.find(
-        item =>
-          Number(item.id) === Number(shopId)
+      await NocoBaseService.getShop(
+        shopId
       );
 
 
@@ -187,41 +541,27 @@ class EditedVideoUploadService {
     }
 
 
-    console.log(
-      "✅ SHOP FOUND"
-    );
-
-    console.log(
-      "SHOP ID:",
-      shop.id
-    );
-
-
-    /* =====================================================
-       4. GET ORDER ID
-    ===================================================== */
-
     if (!shop.nhms_order_id) {
 
       throw new Error(
-        `Shop ${shopId} has no nhms_order_id`
+        `Shop ${shopId} does not have an nhms_order_id`
       );
 
     }
 
 
     console.log(
-      "ORDER ID:",
-      shop.nhms_order_id
+      "✅ SHOP FOUND:",
+      shop.id
     );
 
 
     /* =====================================================
-       5. GET ORDER
+       GET ORDER
     ===================================================== */
 
     console.log(
-      "\n📦 GETTING ORDER..."
+      "📦 GETTING ORDER..."
     );
 
 
@@ -240,42 +580,27 @@ class EditedVideoUploadService {
     }
 
 
-    console.log(
-      "✅ ORDER FOUND"
-    );
-
-
-    /* =====================================================
-       6. GET CUSTOMER ID
-       
-       IMPORTANT:
-       
-       This assumes your order record contains:
-       
-       customer_id
-    ===================================================== */
-
     if (!order.customer_id) {
 
       throw new Error(
-        `Order ${order.id} has no customer_id`
+        `Order ${order.id} does not have a customer_id`
       );
 
     }
 
 
     console.log(
-      "CUSTOMER ID:",
-      order.customer_id
+      "✅ ORDER FOUND:",
+      order.id
     );
 
 
     /* =====================================================
-       7. GET CUSTOMER
+       GET CUSTOMER
     ===================================================== */
 
     console.log(
-      "\n👤 GETTING CUSTOMER..."
+      "👤 GETTING CUSTOMER..."
     );
 
 
@@ -295,16 +620,29 @@ class EditedVideoUploadService {
 
 
     console.log(
-      "✅ CUSTOMER FOUND"
+      "✅ CUSTOMER FOUND:",
+      customer.id
     );
 
 
-    /* =====================================================
-       8. BUILD CUSTOMER FOLDER
-       
-       Same general naming approach as the edited-video
-       Dropbox sync.
-    ===================================================== */
+    return {
+
+      shop,
+
+      order,
+
+      customer
+
+    };
+
+  }
+
+
+  /* =======================================================
+     BUILD CUSTOMER FOLDER
+  ======================================================= */
+
+  buildCustomerFolder(customer) {
 
     let customerFolder;
 
@@ -318,19 +656,29 @@ class EditedVideoUploadService {
 
     } else {
 
-      customerFolder =
-        `${cleanName(
+
+      const firstName =
+        cleanName(
           customer.first_name || ""
-        )}_${cleanName(
+        );
+
+
+      const lastName =
+        cleanName(
           customer.last_name || ""
-        )}`;
+        );
+
+
+      customerFolder =
+        [
+          firstName,
+          lastName
+        ]
+          .filter(Boolean)
+          .join("_");
 
     }
 
-
-    /*
-     * Add customer number when available.
-     */
 
     if (customer.customer_no) {
 
@@ -342,108 +690,114 @@ class EditedVideoUploadService {
     }
 
 
-    /* =====================================================
-       9. BUILD ORDER FOLDER
-    ===================================================== */
+    if (!customerFolder) {
 
-    const orderNo =
-      cleanName(
-        order.order_no ||
-        `ORD-${order.id}`
+      customerFolder =
+        `CUSTOMER-${customer.id}`;
+
+    }
+
+
+    return customerFolder;
+
+  }
+
+
+  /* =======================================================
+     BUILD ORDER FOLDER
+  ======================================================= */
+
+  buildOrderFolder(order) {
+
+    return cleanName(
+
+      order.order_no ||
+
+      `ORD-${order.id}`
+
+    );
+
+  }
+
+
+  /* =======================================================
+     BUILD SHOP FOLDER
+  ======================================================= */
+
+  buildShopFolder(shop) {
+
+    return cleanName(
+
+      shop.shop_no ||
+
+      shop.f_jjro07ym6st ||
+
+      `SHOP-${shop.id}`
+
+    );
+
+  }
+
+
+  /* =======================================================
+     BUILD DROPBOX FOLDER
+
+     IMPORTANT
+
+     Dropbox API paths are relative to the application's
+     accessible Dropbox root.
+
+     Therefore we do NOT add:
+
+     /Apps/NHMS/
+
+  ======================================================= */
+
+  buildDropboxFolder(
+    customer,
+    order,
+    shop
+  ) {
+
+
+    const customerFolder =
+      this.buildCustomerFolder(
+        customer
       );
 
 
-    /* =====================================================
-       10. BUILD SHOP FOLDER
-    ===================================================== */
-
-    const shopNo =
-      cleanName(
-        shop.shop_no ||
-        shop.f_jjro07ym6st ||
-        `SHOP-${shop.id}`
+    const orderFolder =
+      this.buildOrderFolder(
+        order
       );
 
 
-    /* =====================================================
-       11. BUILD EDITED VIDEO FOLDER
-       
-       FINAL PATH:
-       
-       /Apps/NHMS/
-       CUSTOMER/
-       ORDER/
-       SHOP/
-       Edited Videos
-    ===================================================== */
-
-    const editedVideosFolder =
-      `/Apps/NHMS/${customerFolder}/${orderNo}/${shopNo}/Edited Videos`;
-
-
-    console.log(
-      "\n========================================"
-    );
-
-    console.log(
-      "🎬 EDITED VIDEO DROPBOX FOLDER"
-    );
-
-    console.log(
-      editedVideosFolder
-    );
-
-    console.log(
-      "========================================\n"
-    );
-
-
-    /* =====================================================
-       12. CREATE DROPBOX FOLDER
-       
-       createFolder() already handles:
-       
-       - new folder
-       - folder already exists
-    ===================================================== */
-
-    console.log(
-      "📁 CREATING / VERIFYING DROPBOX FOLDER..."
-    );
-
-
-    await DropboxService.createFolder(
-      editedVideosFolder
-    );
-
-
-    console.log(
-      "✅ DROPBOX FOLDER READY"
-    );
-
-
-    /* =====================================================
-       13. CREATE DROPBOX FILE REQUEST
-       
-       This generates:
-       
-       upload_link
-       file_request_id
-    ===================================================== */
-
-    console.log(
-      "\n📤 CREATING DROPBOX FILE REQUEST..."
-    );
-
-
-    const fileRequest =
-      await DropboxService.createFileRequest(
-
-        `Edited Video - ${shopNo}`,
-
-        editedVideosFolder
-
+    const shopFolder =
+      this.buildShopFolder(
+        shop
       );
+
+
+    return (
+
+      `/${customerFolder}/` +
+
+      `${orderFolder}/` +
+
+      `${shopFolder}/` +
+
+      `Edited Videos`
+
+    );
+
+  }
+
+
+  /* =======================================================
+     VALIDATE DROPBOX FILE REQUEST
+  ======================================================= */
+
+  validateFileRequest(fileRequest) {
 
 
     if (!fileRequest) {
@@ -458,7 +812,7 @@ class EditedVideoUploadService {
     if (!fileRequest.upload_link) {
 
       throw new Error(
-        "Dropbox file request did not return upload_link"
+        "Dropbox file request did not return an upload_link"
       );
 
     }
@@ -467,191 +821,60 @@ class EditedVideoUploadService {
     if (!fileRequest.file_request_id) {
 
       throw new Error(
-        "Dropbox file request did not return file_request_id"
+        "Dropbox file request did not return a file_request_id"
       );
 
     }
 
-
-    console.log(
-      "\n✅ DROPBOX FILE REQUEST CREATED"
-    );
-
-    console.log(
-      "UPLOAD LINK:",
-      fileRequest.upload_link
-    );
-
-    console.log(
-      "FILE REQUEST ID:",
-      fileRequest.file_request_id
-    );
+  }
 
 
-    /* =====================================================
-       14. PREPARE NOCOBASE DATA
-       
-       ONLY store the fields that belong to the
-       Edited Video Upload Requests collection.
-    ===================================================== */
+  /* =======================================================
+     BUILD NOCOBASE UPLOAD REQUEST DATA
+  ======================================================= */
 
-    const uploadRequestData = {
+  buildUploadRequestData({
 
-      /*
-       * Relationship to NHMS Shop
-       */
+    shop,
+
+    uploadFolder,
+
+    fileRequest
+
+  }) {
+
+
+    return {
+
 
       nhms_shop_id:
         Number(shop.id),
 
 
-      /*
-       * Dropbox folder
-       */
-
       upload_folder:
-        editedVideosFolder,
+        uploadFolder,
 
-
-      /*
-       * Dropbox upload URL
-       */
 
       upload_link:
         fileRequest.upload_link,
 
 
-      /*
-       * Dropbox File Request ID
-       */
-
       file_request_id:
         fileRequest.file_request_id,
 
 
-      /*
-       * Upload provider
-       */
-
       provider:
         "dropbox",
 
-
-      /*
-       * Current status
-       
-       * For now this ALWAYS remains active.
-       */
 
       status:
         "active"
 
     };
 
-
-    /* =====================================================
-       15. LOG DATA BEFORE SAVING
-    ===================================================== */
-
-    console.log(
-      "\n========================================"
-    );
-
-    console.log(
-      "💾 SAVING EDITED VIDEO UPLOAD REQUEST"
-    );
-
-    console.log(
-      JSON.stringify(
-        uploadRequestData,
-        null,
-        2
-      )
-    );
-
-    console.log(
-      "========================================\n"
-    );
-
-
-    /* =====================================================
-       16. CREATE NOCOBASE RECORD
-    ===================================================== */
-
-    const createdRequest =
-      await NocoBaseService
-        .createEditedVideoUploadRequest(
-          uploadRequestData
-        );
-
-
-    if (!createdRequest) {
-
-      throw new Error(
-        "Edited video upload request was not created in NocoBase"
-      );
-
-    }
-
-
-    /* =====================================================
-       17. FINAL RESULT
-    ===================================================== */
-
-    console.log(
-      "\n========================================"
-    );
-
-    console.log(
-      "🎉 EDITED VIDEO UPLOAD REQUEST READY"
-    );
-
-    console.log(
-      "========================================"
-    );
-
-    console.log(
-      "REQUEST ID:",
-      createdRequest.id
-    );
-
-    console.log(
-      "SHOP ID:",
-      createdRequest.nhms_shop_id
-    );
-
-    console.log(
-      "UPLOAD FOLDER:",
-      createdRequest.upload_folder
-    );
-
-    console.log(
-      "UPLOAD LINK:",
-      createdRequest.upload_link
-    );
-
-    console.log(
-      "FILE REQUEST ID:",
-      createdRequest.file_request_id
-    );
-
-    console.log(
-      "PROVIDER:",
-      createdRequest.provider
-    );
-
-    console.log(
-      "STATUS:",
-      createdRequest.status
-    );
-
-    console.log(
-      "========================================\n"
-    );
-
-
-    return createdRequest;
   }
+
+
 }
 
 
@@ -661,3 +884,4 @@ class EditedVideoUploadService {
 
 module.exports =
   new EditedVideoUploadService();
+

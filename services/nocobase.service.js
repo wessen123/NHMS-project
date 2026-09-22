@@ -1,8 +1,38 @@
+
 // services/nocobase.service.js
 
 require("dotenv").config();
 
 const axios = require("axios");
+
+
+/* =========================================================
+   CONFIGURATION
+========================================================= */
+
+const NOCOBASE_URL =
+  process.env.NOCOBASE_URL;
+
+const NOCOBASE_TOKEN =
+  process.env.NOCOBASE_TOKEN;
+
+
+if (!NOCOBASE_URL) {
+
+  throw new Error(
+    "NOCOBASE_URL is not configured"
+  );
+
+}
+
+
+if (!NOCOBASE_TOKEN) {
+
+  throw new Error(
+    "NOCOBASE_TOKEN is not configured"
+  );
+
+}
 
 
 /* =========================================================
@@ -12,12 +42,15 @@ const axios = require("axios");
 function nocoHeaders() {
 
   return {
+
     Authorization:
-      `Bearer ${process.env.NOCOBASE_TOKEN}`,
+      `Bearer ${NOCOBASE_TOKEN}`,
 
     "Content-Type":
       "application/json"
+
   };
+
 }
 
 
@@ -40,42 +73,40 @@ class NocoBaseService {
     console.log("=========================\n");
 
 
-    const res = await axios.get(
+    const res =
+      await axios.get(
 
-      `${process.env.NOCOBASE_URL}/api/nhms_orders:list`,
+        `${NOCOBASE_URL}/api/nhms_orders:list`,
 
-      {
-        params: {
+        {
 
-          filter: {
-            id: orderId
+          params: {
+
+            filter: {
+              id: Number(orderId)
+            },
+
+            pageSize: 1
+
           },
 
-          pageSize: 1
-        },
+          headers:
+            nocoHeaders()
 
-        headers:
-          nocoHeaders()
-      }
-    );
+        }
+
+      );
 
 
     const order =
-      res.data?.data?.[0] || null;
+      res.data?.data?.[0] ||
+      null;
 
 
     if (order) {
 
       console.log(
-        "✅ ORDER FOUND:"
-      );
-
-      console.log(
-        JSON.stringify(
-          order,
-          null,
-          2
-        )
+        "✅ ORDER FOUND"
       );
 
     } else {
@@ -83,12 +114,13 @@ class NocoBaseService {
       console.log(
         "ℹ️ ORDER NOT FOUND"
       );
+
     }
 
 
     return order;
-  }
 
+  }
 
 
   /* =======================================================
@@ -103,42 +135,40 @@ class NocoBaseService {
     console.log("=========================\n");
 
 
-    const res = await axios.get(
+    const res =
+      await axios.get(
 
-      `${process.env.NOCOBASE_URL}/api/nhms_crm_customers:list`,
+        `${NOCOBASE_URL}/api/nhms_crm_customers:list`,
 
-      {
-        params: {
+        {
 
-          filter: {
-            id: customerId
+          params: {
+
+            filter: {
+              id: Number(customerId)
+            },
+
+            pageSize: 1
+
           },
 
-          pageSize: 1
-        },
+          headers:
+            nocoHeaders()
 
-        headers:
-          nocoHeaders()
-      }
-    );
+        }
+
+      );
 
 
     const customer =
-      res.data?.data?.[0] || null;
+      res.data?.data?.[0] ||
+      null;
 
 
     if (customer) {
 
       console.log(
-        "✅ CUSTOMER FOUND:"
-      );
-
-      console.log(
-        JSON.stringify(
-          customer,
-          null,
-          2
-        )
+        "✅ CUSTOMER FOUND"
       );
 
     } else {
@@ -146,12 +176,86 @@ class NocoBaseService {
       console.log(
         "ℹ️ CUSTOMER NOT FOUND"
       );
+
     }
 
 
     return customer;
+
   }
 
+
+  /* =======================================================
+     GET SHOP
+
+     Used by:
+     - Raw video sync
+     - Edited video sync
+     - Upload request services
+  ======================================================= */
+
+  async getShop(shopId) {
+
+    console.log("\n=========================");
+    console.log("🏠 GET SHOP");
+    console.log("SHOP ID:", shopId);
+    console.log("=========================\n");
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/nhms_shops:list`,
+
+        {
+
+          params: {
+
+            filter: {
+              id: Number(shopId)
+            },
+
+            pageSize: 1
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const shop =
+      res.data?.data?.[0] ||
+      null;
+
+
+    if (shop) {
+
+      console.log(
+        "✅ SHOP FOUND"
+      );
+
+      console.log(
+        "SALES REP:",
+        shop.sales_rep_name ||
+        "NOT SET"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ SHOP NOT FOUND"
+      );
+
+    }
+
+
+    return shop;
+
+  }
 
 
   /* =======================================================
@@ -169,14 +273,6 @@ class NocoBaseService {
     let shops = [];
 
 
-    /*
-     * NocoBase can sometimes return
-     * no records immediately after
-     * an order is created.
-     *
-     * Therefore retry up to 5 times.
-     */
-
     for (
       let attempt = 1;
       attempt <= 5;
@@ -186,27 +282,34 @@ class NocoBaseService {
       const res =
         await axios.get(
 
-          `${process.env.NOCOBASE_URL}/api/nhms_shops:list`,
+          `${NOCOBASE_URL}/api/nhms_shops:list`,
 
           {
+
             params: {
 
               filter: {
+
                 nhms_order_id:
-                  orderId
+                  Number(orderId)
+
               },
 
               pageSize: 999
+
             },
 
             headers:
               nocoHeaders()
+
           }
+
         );
 
 
       shops =
-        res.data?.data || [];
+        res.data?.data ||
+        [];
 
 
       console.log(
@@ -219,16 +322,20 @@ class NocoBaseService {
       ) {
 
         break;
+
       }
 
 
       await new Promise(
+
         resolve =>
           setTimeout(
             resolve,
             1000
           )
+
       );
+
     }
 
 
@@ -238,22 +345,12 @@ class NocoBaseService {
 
 
     return shops;
-  }
 
+  }
 
 
   /* =======================================================
      GET ALL SHOPS
-     
-     Used by:
-     
-     dropbox.edited.sync.service.js
-     
-     This gets all shops so the sync service can check:
-     
-     /Edited Videos
-     
-     for every shop.
   ======================================================= */
 
   async getAllShops() {
@@ -266,22 +363,27 @@ class NocoBaseService {
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/nhms_shops:list`,
+        `${NOCOBASE_URL}/api/nhms_shops:list`,
 
         {
+
           params: {
 
             pageSize: 9999
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     const shops =
-      res.data?.data || [];
+      res.data?.data ||
+      [];
 
 
     console.log(
@@ -290,12 +392,12 @@ class NocoBaseService {
 
 
     return shops;
+
   }
 
 
-
   /* =======================================================
-     CREATE UPLOAD REQUEST
+     RAW VIDEO UPLOAD REQUESTS
   ======================================================= */
 
   async createUploadRequest(data) {
@@ -305,26 +407,20 @@ class NocoBaseService {
     console.log("=========================\n");
 
 
-    console.log(
-      JSON.stringify(
-        data,
-        null,
-        2
-      )
-    );
-
-
     const res =
       await axios.post(
 
-        `${process.env.NOCOBASE_URL}/api/upload_requests:create`,
+        `${NOCOBASE_URL}/api/upload_requests:create`,
 
         data,
 
         {
+
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
@@ -333,40 +429,28 @@ class NocoBaseService {
     );
 
 
-    console.log(
-      JSON.stringify(
-        res.data,
-        null,
-        2
-      )
-    );
-
-
     return (
       res.data?.data ||
       res.data
     );
+
   }
 
-
-
-  /* =======================================================
-     GET ACTIVE UPLOAD REQUESTS
-  ======================================================= */
 
   async getActiveUploadRequests() {
 
     console.log("\n=========================");
-    console.log("📂 GET ACTIVE REQUESTS");
+    console.log("📂 GET ACTIVE RAW VIDEO REQUESTS");
     console.log("=========================\n");
 
 
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/upload_requests:list`,
+        `${NOCOBASE_URL}/api/upload_requests:list`,
 
         {
+
           params: {
 
             filter: {
@@ -374,31 +458,31 @@ class NocoBaseService {
             },
 
             pageSize: 999
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     const requests =
-      res.data?.data || [];
+      res.data?.data ||
+      [];
 
 
     console.log(
-      `✅ ACTIVE REQUESTS: ${requests.length}`
+      `✅ ACTIVE RAW VIDEO REQUESTS: ${requests.length}`
     );
 
 
     return requests;
+
   }
 
-
-
-  /* =======================================================
-     UPDATE UPLOAD REQUEST
-  ======================================================= */
 
   async updateUploadRequest(
     id,
@@ -406,45 +490,30 @@ class NocoBaseService {
   ) {
 
     console.log("\n=========================");
-    console.log("✏️ UPDATE REQUEST");
+    console.log("✏️ UPDATE RAW VIDEO REQUEST");
     console.log("REQUEST ID:", id);
     console.log("=========================\n");
-
-
-    console.log(
-      JSON.stringify(
-        values,
-        null,
-        2
-      )
-    );
 
 
     const res =
       await axios.post(
 
-        `${process.env.NOCOBASE_URL}/api/upload_requests:update?filterByTk=${id}`,
+        `${NOCOBASE_URL}/api/upload_requests:update?filterByTk=${id}`,
 
         values,
 
         {
+
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     console.log(
-      "✅ REQUEST UPDATED"
-    );
-
-
-    console.log(
-      JSON.stringify(
-        res.data,
-        null,
-        2
-      )
+      "✅ RAW VIDEO REQUEST UPDATED"
     );
 
 
@@ -452,16 +521,12 @@ class NocoBaseService {
       res.data?.data ||
       res.data
     );
+
   }
 
 
-
   /* =======================================================
-     CREATE RAW VIDEO
-     
-     Collection:
-     
-     videos
+     RAW VIDEOS
   ======================================================= */
 
   async createVideo(data) {
@@ -471,26 +536,20 @@ class NocoBaseService {
     console.log("=========================\n");
 
 
-    console.log(
-      JSON.stringify(
-        data,
-        null,
-        2
-      )
-    );
-
-
     const res =
       await axios.post(
 
-        `${process.env.NOCOBASE_URL}/api/videos:create`,
+        `${NOCOBASE_URL}/api/videos:create`,
 
         data,
 
         {
+
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
@@ -499,30 +558,13 @@ class NocoBaseService {
     );
 
 
-    console.log(
-      JSON.stringify(
-        res.data,
-        null,
-        2
-      )
-    );
-
-
     return (
       res.data?.data ||
       res.data
     );
+
   }
 
-
-
-  /* =======================================================
-     GET RAW VIDEO BY DROPBOX FILE ID
-     
-     Used by:
-     
-     dropbox.sync.service.js
-  ======================================================= */
 
   async getVideoByDropboxFileId(
     dropboxFileId
@@ -540,23 +582,28 @@ class NocoBaseService {
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/videos:list`,
+        `${NOCOBASE_URL}/api/videos:list`,
 
         {
+
           params: {
 
             filter: {
 
               dropbox_file_id:
                 dropboxFileId
+
             },
 
             pageSize: 1
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
@@ -576,29 +623,14 @@ class NocoBaseService {
       console.log(
         "ℹ️ RAW VIDEO NOT FOUND"
       );
+
     }
 
 
     return video;
+
   }
 
-
-
-  /* =======================================================
-     GET ALL RAW VIDEOS FOR SHOP
-     
-     Collection:
-     
-     videos
-     
-     Field:
-     
-     nhms_shop_id
-     
-     Used by:
-     
-     dropbox.edited.sync.service.js
-  ======================================================= */
 
   async getVideosByShopId(
     shopId
@@ -606,38 +638,41 @@ class NocoBaseService {
 
     console.log("\n=========================");
     console.log("🎥 GET RAW VIDEOS");
-    console.log(
-      "SHOP ID:",
-      shopId
-    );
+    console.log("SHOP ID:", shopId);
     console.log("=========================\n");
 
 
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/videos:list`,
+        `${NOCOBASE_URL}/api/videos:list`,
 
         {
+
           params: {
 
             filter: {
 
               nhms_shop_id:
-                shopId
+                Number(shopId)
+
             },
 
             pageSize: 999
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     const videos =
-      res.data?.data || [];
+      res.data?.data ||
+      [];
 
 
     console.log(
@@ -646,24 +681,138 @@ class NocoBaseService {
 
 
     return videos;
+
   }
 
 
-
   /* =======================================================
-     CREATE EDITED VIDEO
-     
-     Collection:
-     
-     edited_videos
+     EDITED VIDEO UPLOAD REQUESTS
   ======================================================= */
 
-  async createEditedVideo(
+  async getActiveEditedVideoUploadRequests() {
+
+    console.log("\n========================================");
+    console.log("📂 GET ACTIVE EDITED VIDEO REQUESTS");
+    console.log("========================================\n");
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/edited_video_upload_requests:list`,
+
+        {
+
+          params: {
+
+            filter: {
+              status: "active"
+            },
+
+            pageSize: 999
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const requests =
+      res.data?.data ||
+      [];
+
+
+    console.log(
+      `✅ ACTIVE EDITED VIDEO REQUESTS: ${requests.length}`
+    );
+
+
+    return requests;
+
+  }
+
+
+  async getEditedVideoUploadRequestByShopId(
+    shopId
+  ) {
+
+    console.log("\n=========================");
+    console.log("🔍 FIND EDITED VIDEO UPLOAD REQUEST");
+    console.log("SHOP ID:", shopId);
+    console.log("=========================\n");
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/edited_video_upload_requests:list`,
+
+        {
+
+          params: {
+
+            filter: {
+
+              nhms_shop_id:
+                Number(shopId)
+
+            },
+
+            sort:
+              "-updatedAt",
+
+            pageSize: 10
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const requests =
+      res.data?.data ||
+      [];
+
+
+    const request =
+      requests[0] ||
+      null;
+
+
+    if (request) {
+
+      console.log(
+        "✅ EDITED VIDEO UPLOAD REQUEST FOUND"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ NO EDITED VIDEO UPLOAD REQUEST FOUND"
+      );
+
+    }
+
+
+    return request;
+
+  }
+
+
+  async createEditedVideoUploadRequest(
     data
   ) {
 
     console.log("\n=========================");
-    console.log("🎬 CREATE EDITED VIDEO");
+    console.log("📤 CREATE EDITED VIDEO UPLOAD REQUEST");
     console.log("=========================\n");
 
 
@@ -679,28 +828,22 @@ class NocoBaseService {
     const res =
       await axios.post(
 
-        `${process.env.NOCOBASE_URL}/api/edited_videos:create`,
+        `${NOCOBASE_URL}/api/edited_video_upload_requests:create`,
 
         data,
 
         {
+
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     console.log(
-      "✅ EDITED VIDEO CREATED"
-    );
-
-
-    console.log(
-      JSON.stringify(
-        res.data,
-        null,
-        2
-      )
+      "✅ EDITED VIDEO UPLOAD REQUEST CREATED"
     );
 
 
@@ -708,15 +851,67 @@ class NocoBaseService {
       res.data?.data ||
       res.data
     );
+
   }
 
 
+  async updateEditedVideoUploadRequest(
+    id,
+    values
+  ) {
+
+    console.log("\n========================================");
+    console.log("✏️ UPDATE EDITED VIDEO UPLOAD REQUEST");
+    console.log("REQUEST ID:", id);
+    console.log("========================================\n");
+
+
+    console.log(
+      JSON.stringify(
+        values,
+        null,
+        2
+      )
+    );
+
+
+    const res =
+      await axios.post(
+
+        `${NOCOBASE_URL}/api/edited_video_upload_requests:update?filterByTk=${id}`,
+
+        values,
+
+        {
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    console.log(
+      "✅ EDITED VIDEO UPLOAD REQUEST UPDATED"
+    );
+
+
+    return (
+      res.data?.data ||
+      res.data
+    );
+
+  }
+
 
   /* =======================================================
-     GET EDITED VIDEO BY DROPBOX FILE ID
-     
-     Prevents duplicate edited-video
-     records during every sync.
+     EDITED VIDEOS
+  ======================================================= */
+
+
+  /* =======================================================
+     FIND EDITED VIDEO BY DROPBOX FILE ID
   ======================================================= */
 
   async getEditedVideoByDropboxFileId(
@@ -732,26 +927,42 @@ class NocoBaseService {
     console.log("=========================\n");
 
 
+    if (!dropboxFileId) {
+
+      console.log(
+        "ℹ️ DROPBOX FILE ID IS EMPTY"
+      );
+
+      return null;
+
+    }
+
+
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/edited_videos:list`,
+        `${NOCOBASE_URL}/api/edited_videos:list`,
 
         {
+
           params: {
 
             filter: {
 
               dropbox_file_id:
                 dropboxFileId
+
             },
 
             pageSize: 1
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
@@ -766,28 +977,155 @@ class NocoBaseService {
         "✅ EDITED VIDEO EXISTS"
       );
 
+      console.log(
+        "EDITED VIDEO ID:",
+        editedVideo.id
+      );
+
     } else {
 
       console.log(
         "ℹ️ EDITED VIDEO NOT FOUND"
       );
+
     }
 
 
     return editedVideo;
+
   }
 
 
+  /* =======================================================
+     FIND CURRENT EDITED VIDEO BY SHOP
+
+     RULE:
+
+     ONE SHOP = ONE CURRENT EDITED VIDEO
+
+     If duplicates already exist, the newest updated
+     record is returned.
+  ======================================================= */
+
+  async getEditedVideoByShopId(
+    shopId
+  ) {
+
+    console.log("\n========================================");
+    console.log("🔍 FIND CURRENT EDITED VIDEO BY SHOP");
+    console.log("SHOP ID:", shopId);
+    console.log("========================================\n");
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/edited_videos:list`,
+
+        {
+
+          params: {
+
+            filter: {
+
+              nhms_shop_id:
+                Number(shopId)
+
+            },
+
+            /*
+             * Newest record first.
+             */
+
+            sort:
+              "-updatedAt",
+
+            pageSize:
+              10
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const editedVideos =
+      res.data?.data ||
+      [];
+
+
+    if (
+      editedVideos.length > 1
+    ) {
+
+      console.warn(
+        `⚠️ MULTIPLE EDITED VIDEO RECORDS FOUND FOR SHOP ${shopId}`
+      );
+
+      console.warn(
+        `⚠️ USING MOST RECENT RECORD: ${editedVideos[0].id}`
+      );
+
+    }
+
+
+    const editedVideo =
+      editedVideos[0] ||
+      null;
+
+
+    if (editedVideo) {
+
+      console.log(
+        "✅ EXISTING EDITED VIDEO FOUND"
+      );
+
+      console.log(
+        "EDITED VIDEO ID:",
+        editedVideo.id
+      );
+
+      console.log(
+        "FILE NAME:",
+        editedVideo.file_name ||
+        editedVideo.original_filename ||
+        "NOT SET"
+      );
+
+      console.log(
+        "DROPBOX FILE ID:",
+        editedVideo.dropbox_file_id ||
+        "NOT SET"
+      );
+
+      console.log(
+        "FILE PATH:",
+        editedVideo.file_path ||
+        "NOT SET"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ NO EDITED VIDEO FOUND"
+      );
+
+    }
+
+
+    return editedVideo;
+
+  }
+
 
   /* =======================================================
-     GET EDITED VIDEOS FOR SHOP
-     
-     Useful later for:
-     
-     - Video Editor dashboard
-     - QC dashboard
-     - Client delivery
-     - Revision workflow
+     GET ALL EDITED VIDEOS FOR SHOP
+
+     Useful for checking duplicate records.
   ======================================================= */
 
   async getEditedVideosByShopId(
@@ -796,38 +1134,45 @@ class NocoBaseService {
 
     console.log("\n=========================");
     console.log("🎬 GET EDITED VIDEOS");
-    console.log(
-      "SHOP ID:",
-      shopId
-    );
+    console.log("SHOP ID:", shopId);
     console.log("=========================\n");
 
 
     const res =
       await axios.get(
 
-        `${process.env.NOCOBASE_URL}/api/edited_videos:list`,
+        `${NOCOBASE_URL}/api/edited_videos:list`,
 
         {
+
           params: {
 
             filter: {
 
               nhms_shop_id:
-                shopId
+                Number(shopId)
+
             },
 
-            pageSize: 999
+            sort:
+              "-updatedAt",
+
+            pageSize:
+              999
+
           },
 
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
     const editedVideos =
-      res.data?.data || [];
+      res.data?.data ||
+      [];
 
 
     console.log(
@@ -836,309 +1181,509 @@ class NocoBaseService {
 
 
     return editedVideos;
+
   }
 
-/* =========================
-   GET EDITED VIDEO BY SHOP
-========================= */
-async getEditedVideoByShopId(shopId) {
-
-  console.log("\n=========================");
-  console.log("🔍 FIND EDITED VIDEO BY SHOP");
-  console.log("SHOP ID:", shopId);
-  console.log("=========================\n");
-
-  const res = await axios.get(
-    `${process.env.NOCOBASE_URL}/api/edited_videos:list`,
-    {
-      params: {
-        filter: {
-          nhms_shop_id: Number(shopId)
-        },
-        pageSize: 1
-      },
-      headers: nocoHeaders()
-    }
-  );
-
-  const editedVideo = res.data?.data?.[0] || null;
-
-  if (editedVideo) {
-    console.log("✅ EXISTING EDITED VIDEO FOUND");
-    console.log("EDITED VIDEO ID:", editedVideo.id);
-  } else {
-    console.log("ℹ️ NO EDITED VIDEO FOUND");
-  }
-
-  return editedVideo;
-}
-
-
-/* =========================
-   CREATE EDITED VIDEO
-========================= */
-async createEditedVideo(data) {
-
-  console.log("\n=========================");
-  console.log("🎬 CREATE EDITED VIDEO");
-  console.log("=========================\n");
-
-  console.log(JSON.stringify(data, null, 2));
-
-  const res = await axios.post(
-    `${process.env.NOCOBASE_URL}/api/edited_videos:create`,
-    data,
-    {
-      headers: nocoHeaders()
-    }
-  );
-
-  console.log("✅ EDITED VIDEO CREATED");
-  console.log(JSON.stringify(res.data, null, 2));
-
-  return res.data?.data || res.data;
-}
-
-
-
-/* =======================================================
-   GET EDITED VIDEO UPLOAD REQUEST BY SHOP ID
-
-   Collection:
-   edited_video_upload_requests
-
-   Used to check if an edited-video upload request
-   already exists for this shop.
-======================================================= */
-
-async getEditedVideoUploadRequestByShopId(shopId) {
-
-  console.log("\n=========================");
-  console.log("🔍 FIND EDITED VIDEO UPLOAD REQUEST");
-  console.log("SHOP ID:", shopId);
-  console.log("=========================\n");
-
-  const res = await axios.get(
-
-    `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:list`,
-
-    {
-      params: {
-
-        filter: {
-          nhms_shop_id:
-            Number(shopId)
-        },
-
-        pageSize: 1
-      },
-
-      headers:
-        nocoHeaders()
-    }
-  );
-
-  const request =
-    res.data?.data?.[0] || null;
-
-  if (request) {
-
-    console.log(
-      "✅ EDITED VIDEO UPLOAD REQUEST FOUND"
-    );
-
-    console.log(
-      "REQUEST ID:",
-      request.id
-    );
-
-    console.log(
-      "UPLOAD FOLDER:",
-      request.upload_folder
-    );
-
-    console.log(
-      "UPLOAD LINK:",
-      request.upload_link
-    );
-
-    console.log(
-      "FILE REQUEST ID:",
-      request.file_request_id
-    );
-
-    console.log(
-      "STATUS:",
-      request.status
-    );
-
-  } else {
-
-    console.log(
-      "ℹ️ NO EDITED VIDEO UPLOAD REQUEST FOUND"
-    );
-  }
-
-  return request;
-}
-
-
-/* =======================================================
-   CREATE EDITED VIDEO UPLOAD REQUEST
-
-   Collection:
-   edited_video_upload_requests
-
-   Stores:
-   - Shop ID
-   - Edited Videos Dropbox folder
-   - Dropbox upload link
-   - Dropbox file request ID
-   - Provider
-   - Status
-======================================================= */
-
-async createEditedVideoUploadRequest(data) {
-
-  console.log("\n=========================");
-  console.log("📤 CREATE EDITED VIDEO UPLOAD REQUEST");
-  console.log("=========================\n");
-
-  console.log(
-    JSON.stringify(
-      data,
-      null,
-      2
-    )
-  );
-
-  const res =
-    await axios.post(
-
-      `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:create`,
-
-      data,
-
-      {
-        headers:
-          nocoHeaders()
-      }
-    );
-
-  console.log(
-    "✅ EDITED VIDEO UPLOAD REQUEST CREATED"
-  );
-
-  console.log(
-    JSON.stringify(
-      res.data,
-      null,
-      2
-    )
-  );
-
-  return (
-    res.data?.data ||
-    res.data
-  );
-}
-
-
-/* =======================================================
-   UPDATE EDITED VIDEO UPLOAD REQUEST
-
-   Used when:
-   - status changes
-   - upload link changes
-   - folder changes
-   - file request ID changes
-======================================================= */
-
-async updateEditedVideoUploadRequest(
-  id,
-  values
-) {
-
-  console.log("\n=========================");
-  console.log("✏️ UPDATE EDITED VIDEO UPLOAD REQUEST");
-  console.log("REQUEST ID:", id);
-  console.log("=========================\n");
-
-  console.log(
-    JSON.stringify(
-      values,
-      null,
-      2
-    )
-  );
-
-  const res =
-    await axios.post(
-
-      `${process.env.NOCOBASE_URL}/api/edited_video_upload_requests:update?filterByTk=${id}`,
-
-      values,
-
-      {
-        headers:
-          nocoHeaders()
-      }
-    );
-
-  console.log(
-    "✅ EDITED VIDEO UPLOAD REQUEST UPDATED"
-  );
-
-  console.log(
-    JSON.stringify(
-      res.data,
-      null,
-      2
-    )
-  );
-
-  return (
-    res.data?.data ||
-    res.data
-  );
-}
-
-
-/* =========================
-   UPDATE EDITED VIDEO
-========================= */
-async updateEditedVideo(id, values) {
-
-  console.log("\n=========================");
-  console.log("✏️ UPDATE EDITED VIDEO");
-  console.log("EDITED VIDEO ID:", id);
-  console.log("=========================\n");
-
-  console.log(JSON.stringify(values, null, 2));
-
-  const res = await axios.post(
-    `${process.env.NOCOBASE_URL}/api/edited_videos:update?filterByTk=${id}`,
-    values,
-    {
-      headers: nocoHeaders()
-    }
-  );
-
-  console.log("✅ EDITED VIDEO UPDATED");
-  console.log(JSON.stringify(res.data, null, 2));
-
-  return res.data?.data || res.data;
-}
 
   /* =======================================================
+     CREATE EDITED VIDEO
+
+     Used only when this shop does not already have
+     an Edited Videos record.
+  ======================================================= */
+
+  async createEditedVideo(
+    data
+  ) {
+
+    console.log("\n========================================");
+    console.log("🎬 CREATE EDITED VIDEO");
+    console.log("========================================\n");
+
+
+    console.log(
+      JSON.stringify(
+        data,
+        null,
+        2
+      )
+    );
+
+
+    const res =
+      await axios.post(
+
+        `${NOCOBASE_URL}/api/edited_videos:create`,
+
+        data,
+
+        {
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const createdVideo =
+      res.data?.data ||
+      res.data;
+
+
+    console.log(
+      "✅ EDITED VIDEO CREATED"
+    );
+
+
+    if (
+      createdVideo?.id
+    ) {
+
+      console.log(
+        "EDITED VIDEO ID:",
+        createdVideo.id
+      );
+
+    }
+
+
+    return createdVideo;
+
+  }
+
+  /* =======================================================
+     GET SALES REP
+  ======================================================= */
+
+  async getSalesRep(
+    salesRepId
+  ) {
+
+    console.log("\n=========================");
+    console.log("👤 GET SALES REP");
+    console.log("SALES REP ID:", salesRepId);
+    console.log("=========================\n");
+
+
+    if (!salesRepId) {
+
+      console.log(
+        "ℹ️ SALES REP ID IS EMPTY"
+      );
+
+      return null;
+
+    }
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/sales_reps:list`,
+
+        {
+
+          params: {
+
+            filter: {
+              id: Number(salesRepId)
+            },
+
+            pageSize: 1
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const salesRep =
+      res.data?.data?.[0] ||
+      null;
+
+
+    if (salesRep) {
+
+      console.log(
+        "✅ SALES REP FOUND"
+      );
+
+      console.log(
+        "FIRST NAME:",
+        salesRep.first_name ||
+        "NOT SET"
+      );
+
+      console.log(
+        "LAST NAME:",
+        salesRep.last_name ||
+        "NOT SET"
+      );
+
+      console.log(
+        "FULL NAME:",
+        salesRep.full_name ||
+        "NOT SET"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ SALES REP NOT FOUND"
+      );
+
+    }
+
+
+    return salesRep;
+
+  }
+
+
+  /* =======================================================
+     GET COMMUNITY SERVICE
+  ======================================================= */
+
+  async getCommunityService(
+    communityServiceId
+  ) {
+
+    console.log("\n=========================");
+    console.log("🏘️ GET COMMUNITY SERVICE");
+    console.log(
+      "COMMUNITY SERVICE ID:",
+      communityServiceId
+    );
+    console.log("=========================\n");
+
+
+    if (!communityServiceId) {
+
+      console.log(
+        "ℹ️ COMMUNITY SERVICE ID IS EMPTY"
+      );
+
+      return null;
+
+    }
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/community_services:list`,
+
+        {
+
+          params: {
+
+            filter: {
+              id:
+                Number(
+                  communityServiceId
+                )
+            },
+
+            pageSize: 1
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const communityService =
+      res.data?.data?.[0] ||
+      null;
+
+
+    if (communityService) {
+
+      console.log(
+        "✅ COMMUNITY SERVICE FOUND"
+      );
+
+      console.log(
+        "COMMUNITY ID:",
+        communityService.community_id ||
+        "NOT SET"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ COMMUNITY SERVICE NOT FOUND"
+      );
+
+    }
+
+
+    return communityService;
+
+  }
+
+
+  /* =======================================================
+     GET COMMUNITY
+  ======================================================= */
+
+  async getCommunity(
+    communityId
+  ) {
+
+    console.log("\n=========================");
+    console.log("🏡 GET COMMUNITY");
+    console.log(
+      "COMMUNITY ID:",
+      communityId
+    );
+    console.log("=========================\n");
+
+
+    if (!communityId) {
+
+      console.log(
+        "ℹ️ COMMUNITY ID IS EMPTY"
+      );
+
+      return null;
+
+    }
+
+
+    const res =
+      await axios.get(
+
+        `${NOCOBASE_URL}/api/communities:list`,
+
+        {
+
+          params: {
+
+            filter: {
+              id:
+                Number(
+                  communityId
+                )
+            },
+
+            pageSize: 1
+
+          },
+
+          headers:
+            nocoHeaders()
+
+        }
+
+      );
+
+
+    const community =
+      res.data?.data?.[0] ||
+      null;
+
+
+    if (community) {
+
+      console.log(
+        "✅ COMMUNITY FOUND"
+      );
+
+      console.log(
+        "COMMUNITY NAME:",
+        community.name ||
+        "NOT SET"
+      );
+
+    } else {
+
+      console.log(
+        "ℹ️ COMMUNITY NOT FOUND"
+      );
+
+    }
+
+
+    return community;
+
+  }
+
+
+  /* =======================================================
+     GET COMPLETE SHOP VIDEO CONTEXT
+
+     Used for edited video file naming.
+
+     Returns:
+     {
+       shop,
+       salesRep,
+       communityService,
+       community
+     }
+  ======================================================= */
+
+  async getShopVideoContext(
+    shopId
+  ) {
+
+    console.log("\n========================================");
+    console.log("🎬 GET SHOP VIDEO CONTEXT");
+    console.log(
+      "SHOP ID:",
+      shopId
+    );
+    console.log("========================================\n");
+
+
+    /* =====================================
+       1. GET SHOP
+    ===================================== */
+
+    const shop =
+      await this.getShop(
+        shopId
+      );
+
+
+    if (!shop) {
+
+      throw new Error(
+        `Shop not found: ${shopId}`
+      );
+
+    }
+
+
+    /* =====================================
+       2. GET SALES REP
+    ===================================== */
+
+    const salesRep =
+      shop.sales_rep_id
+        ? await this.getSalesRep(
+            shop.sales_rep_id
+          )
+        : null;
+
+
+    /* =====================================
+       3. GET COMMUNITY SERVICE
+    ===================================== */
+
+    const communityService =
+      shop.community_service_id
+        ? await this.getCommunityService(
+            shop.community_service_id
+          )
+        : null;
+
+
+    /* =====================================
+       4. GET COMMUNITY
+
+       Community comes from the shop's
+       community service.
+
+       This is intentionally NOT taken
+       from the Sales Rep's community_id.
+    ===================================== */
+
+    const community =
+      communityService?.community_id
+        ? await this.getCommunity(
+            communityService.community_id
+          )
+        : null;
+
+
+    /* =====================================
+       COMPLETE CONTEXT
+    ===================================== */
+
+    const context = {
+
+      shop,
+
+      salesRep,
+
+      communityService,
+
+      community
+
+    };
+
+
+    console.log(
+      "\n========================================"
+    );
+
+    console.log(
+      "✅ SHOP VIDEO CONTEXT READY"
+    );
+
+    console.log(
+      "========================================"
+    );
+
+    console.log(
+      "SHOP DATE:",
+      shop.shop_date ||
+      "EMPTY - TODAY WILL BE USED"
+    );
+
+    console.log(
+      "SALES REP:",
+      salesRep?.full_name ||
+      [
+        salesRep?.first_name,
+        salesRep?.last_name
+      ]
+        .filter(Boolean)
+        .join(" ") ||
+      shop.sales_rep_name ||
+      "NOT FOUND"
+    );
+
+    console.log(
+      "COMMUNITY:",
+      community?.name ||
+      "NOT FOUND"
+    );
+
+    console.log(
+      "========================================\n"
+    );
+
+
+    return context;
+
+  }
+  /* =======================================================
      UPDATE EDITED VIDEO
-     
-     Useful for:
-     
-     submitted
-     approved
-     revision_required
-     rejected
+
+     IMPORTANT:
+
+     The existing NocoBase record is preserved.
+
+     When a new edited video is uploaded:
+
+     - The old Dropbox file is deleted.
+     - The new Dropbox file is renamed.
+     - This SAME NocoBase record is updated.
+
+     No new NocoBase record is created.
   ======================================================= */
 
   async updateEditedVideo(
@@ -1146,14 +1691,62 @@ async updateEditedVideo(id, values) {
     values
   ) {
 
-    console.log("\n=========================");
-    console.log("✏️ UPDATE EDITED VIDEO");
+    if (!id) {
+
+      throw new Error(
+        "Edited video ID is required for update"
+      );
+
+    }
+
+
+    console.log("\n========================================");
+    console.log("♻️ UPDATE CURRENT EDITED VIDEO");
+    console.log("========================================");
+
     console.log(
-      "EDITED VIDEO ID:",
+      "EDITED VIDEO RECORD ID:",
       id
     );
-    console.log("=========================\n");
 
+    console.log(
+      "NEW FILE NAME:",
+      values.file_name ||
+      "NOT SET"
+    );
+
+    console.log(
+      "NEW ORIGINAL FILE NAME:",
+      values.original_filename ||
+      "NOT SET"
+    );
+
+    console.log(
+      "NEW DROPBOX FILE ID:",
+      values.dropbox_file_id ||
+      "NOT SET"
+    );
+
+    console.log(
+      "NEW FILE PATH:",
+      values.file_path ||
+      "NOT SET"
+    );
+
+    console.log(
+      "NEW STATUS:",
+      values.status ||
+      "NOT SET"
+    );
+
+    console.log(
+      "========================================\n"
+    );
+
+
+    console.log(
+      "UPDATE DATA:"
+    );
 
     console.log(
       JSON.stringify(
@@ -1167,35 +1760,49 @@ async updateEditedVideo(id, values) {
     const res =
       await axios.post(
 
-        `${process.env.NOCOBASE_URL}/api/edited_videos:update?filterByTk=${id}`,
+        `${NOCOBASE_URL}/api/edited_videos:update?filterByTk=${id}`,
 
         values,
 
         {
+
           headers:
             nocoHeaders()
+
         }
+
       );
 
 
+    const updatedVideo =
+      res.data?.data ||
+      res.data;
+
+
     console.log(
-      "✅ EDITED VIDEO UPDATED"
+      "\n========================================"
+    );
+
+    console.log(
+      "✅ EDITED VIDEO UPDATED SUCCESSFULLY"
+    );
+
+    console.log(
+      "========================================"
     );
 
 
     console.log(
       JSON.stringify(
-        res.data,
+        updatedVideo,
         null,
         2
       )
     );
 
 
-    return (
-      res.data?.data ||
-      res.data
-    );
+    return updatedVideo;
+
   }
 
 
@@ -1208,3 +1815,4 @@ async updateEditedVideo(id, values) {
 
 module.exports =
   new NocoBaseService();
+
