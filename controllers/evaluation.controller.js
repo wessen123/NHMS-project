@@ -31,7 +31,8 @@ exports.processEvaluation =
 
     } catch (err) {
 
-      console.error(err);
+      // Axios error objects may contain Authorization headers. Log a safe message only.
+      console.error("[NHMS report]", err.message);
 
       return res.status(500).json({
         success: false,
