@@ -1,0 +1,290 @@
+[
+  {
+    "key": "approach",
+    "title": "APPROACH",
+    "possible_score": 8,
+    "questions": [
+      {
+        "id": "app_1",
+        "number": "1",
+        "question": "Did SR smile?",
+        "possible": 1
+      },
+      {
+        "id": "app_2",
+        "number": "2",
+        "question": "Did SR rise to speak?",
+        "possible": 1
+      },
+      {
+        "id": "app_3",
+        "number": "3",
+        "question": "Did SR make friendly, courteous greeting?",
+        "possible": 1
+      },
+      {
+        "id": "app_4",
+        "number": "4",
+        "question": "Did SR introduce him/herself?",
+        "possible": 1
+      },
+      {
+        "id": "app_5",
+        "number": "5",
+        "question": "Did SR, if busy, acknowledge and/or politely ask you to wait?",
+        "possible": 1
+      },
+      {
+        "id": "app_6",
+        "number": "6",
+        "question": "Did SR get your name?",
+        "possible": 1
+      },
+      {
+        "id": "app_7",
+        "number": "7",
+        "question": "Did SR inquire what attracted you to the development?",
+        "possible": 2
+      }
+    ]
+  },
+  {
+    "key": "qualifying",
+    "title": "QUALIFYING",
+    "possible_score": 15,
+    "questions": [
+      {
+        "id": "qual_1",
+        "number": "1",
+        "question": "Did SR have a strong qualifying sequence?",
+        "possible": 5,
+        "subtext": "(needs, timing, special interests, etc. plus questions below)"
+      },
+      {
+        "id": "qual_2",
+        "number": "A",
+        "group": "2  Did SR attempt to determine:",
+        "question": "Motivations for moving (present residence, likes, dislikes)",
+        "possible": 2.5
+      },
+      {
+        "id": "qual_3",
+        "number": "B",
+        "question": "Lifestyle needs (how you will use your home)",
+        "possible": 2.5
+      },
+      {
+        "id": "qual_4",
+        "number": "C",
+        "question": "Employment situation",
+        "possible": 2.5
+      },
+      {
+        "id": "qual_5",
+        "number": "D",
+        "question": "Ability to purchase (contingent status, prequal, down payment)",
+        "possible": 2.5
+      }
+    ]
+  },
+  {
+    "key": "demonstration",
+    "title": "DEMONSTRATION",
+    "possible_score": 20,
+    "questions": [
+      {
+        "id": "dem_1",
+        "number": "A",
+        "group": "1  Did SR discuss benefits of project and/or community?",
+        "question": "Community interests (Schools, shopping, recreation)",
+        "possible": 5
+      },
+      {
+        "id": "dem_2",
+        "number": "B",
+        "question": "Pride of ownership (Builder story, quality, warranties)",
+        "possible": 6
+      },
+      {
+        "id": "dem_3",
+        "number": "A",
+        "group": "2  Did SR \"sell\" benefits of product?",
+        "question": "Features (Standard, options, quality)",
+        "possible": 3
+      },
+      {
+        "id": "dem_4",
+        "number": "B",
+        "question": "Financing (Rates, preferred lender, incentives, estimate)",
+        "possible": 3
+      },
+      {
+        "id": "dem_5",
+        "number": "C",
+        "question": "Price (Incentives, value)",
+        "possible": 3
+      }
+    ]
+  },
+  {
+    "key": "presentation",
+    "title": "PRESENTATION",
+    "possible_score": 20,
+    "questions": [
+      {
+        "id": "pre_1",
+        "number": "1",
+        "question": "Did SR have a \"planned presentation\"?",
+        "possible": 4
+      },
+      {
+        "id": "pre_2",
+        "number": "2",
+        "question": "Did SR take command?",
+        "possible": 4
+      },
+      {
+        "id": "pre_3",
+        "number": "3",
+        "question": "Did SR conduct tour of model or house of your preference? (NO go to next question.)",
+        "possible": 5
+      },
+      {
+        "id": "pre_3a",
+        "number": "A",
+        "question": "If you went alone to homesite, were you encouraged to return?",
+        "possible": null,
+        "informational": true
+      },
+      {
+        "id": "pre_4",
+        "number": "4",
+        "question": "Were sales aids used effectively during presentation?",
+        "possible": 3
+      },
+      {
+        "id": "pre_5",
+        "number": "A",
+        "group": "5  Was SR well informed on:",
+        "question": "Community?",
+        "possible": 2
+      },
+      {
+        "id": "pre_6",
+        "number": "B",
+        "question": "Product?",
+        "possible": 2
+      }
+    ]
+  },
+  {
+    "key": "closing",
+    "title": "CLOSE",
+    "possible_score": 22,
+    "questions": [
+      {
+        "id": "close_1",
+        "number": "1",
+        "question": "Did SR ask an appropriate closing question?",
+        "possible": 6
+      },
+      {
+        "id": "close_2",
+        "number": "A",
+        "question": "When rejected did SR attempt to overcome objections?",
+        "possible": 4
+      },
+      {
+        "id": "close_3",
+        "number": "B",
+        "question": "Did SR directly ask you a second time to buy?",
+        "possible": 4
+      },
+      {
+        "id": "close_4",
+        "number": "2",
+        "question": "Did SR ask for a specific appointment?",
+        "possible": 4
+      },
+      {
+        "id": "close_5",
+        "number": "3",
+        "question": "Did SR ask you to register (capture address, phone and/or email)?",
+        "possible": 2
+      },
+      {
+        "id": "close_6",
+        "number": "4",
+        "question": "Follow up by phone or email within 48 hours",
+        "possible": 2
+      }
+    ]
+  },
+  {
+    "key": "attitude",
+    "title": "GENERAL ATTITUDE",
+    "possible_score": 15,
+    "questions": [
+      {
+        "id": "att_1",
+        "number": "1",
+        "question": "Was SR enthusiastic?",
+        "possible": 3
+      },
+      {
+        "id": "att_2",
+        "number": "2",
+        "question": "Did SR use your name?",
+        "possible": 2
+      },
+      {
+        "id": "att_3",
+        "number": "3",
+        "question": "Did SR make you feel wanted?",
+        "possible": 1
+      },
+      {
+        "id": "att_4",
+        "number": "4",
+        "question": "Did SR speak clearly?",
+        "possible": 1
+      },
+      {
+        "id": "att_5",
+        "number": "5",
+        "question": "Did SR speak at your level?",
+        "possible": 1
+      },
+      {
+        "id": "att_6",
+        "number": "6",
+        "question": "Was SR pleasant?",
+        "possible": 1
+      },
+      {
+        "id": "att_7",
+        "number": "7",
+        "question": "Was SR courteous?",
+        "possible": 1
+      },
+      {
+        "id": "att_8",
+        "number": "8",
+        "question": "Was SR sincere?",
+        "possible": 1
+      },
+      {
+        "id": "att_9",
+        "number": "9",
+        "question": "Was SR dressed appropriately?",
+        "possible": 1
+      },
+      {
+        "id": "att_10",
+        "number": "10",
+        "question": "Did SR use imagination and creatively demonstrate toward your needs?",
+        "possible": 3
+      }
+    ]
+  }
+]

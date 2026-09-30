@@ -12,15 +12,11 @@ const preview = model => model.previewLabel ? `<div class="preview">${escape(mod
 
 function renderSection(section) {
   const rows = section.questions.length ? section.questions.map(q => {
-    // NO is only asserted from a verified explicit answer. Never from absence or points lost.
-    let yes = q.earned === null ? "?" : point(q.earned);
-    let no = "";
-    if (q.answer === "no" && q.earned === 0) { yes = ""; no = "0"; }
-    if (!q.answer) yes += " ?";
-    if (q.answer === "na" && q.earned === null) yes = "";
-    return `<tr><td class="number">${escape(q.number)}</td><td>${escape(q.question)}</td>
-      <td class="points">${q.possible === null ? "?" : point(q.possible)}</td>
-      <td class="points">${yes}<span class="marker">${escape(q.marker)}</span></td><td class="points">${no}</td></tr>`;
+    const group = q.group ? `<div class="question-group">${escape(q.group)}</div>` : '';
+    const subtext = q.subtext ? `<div class="question-subtext">${escape(q.subtext)}</div>` : '';
+    return `<tr><td class="number">${escape(q.number)}</td><td>${group}${escape(q.question)}${subtext}</td>
+      <td class="points">${q.informational ? '-' : point(q.possible)}</td>
+      <td class="points">${escape(q.yes)}</td><td class="points">${escape(q.no)}</td></tr>`;
   }).join("") : '<tr><td colspan="5" class="missing">Question data missing</td></tr>';
   return `<table class="score-table"><colgroup><col style="width:4%"><col style="width:70%"><col style="width:9%"><col style="width:11%"><col style="width:6%"></colgroup>
     <thead><tr><th colspan="5" class="section-head"><div><span>${escape(section.title.toUpperCase())} (${point(section.possible)})</span><small>Efficiency Rating: ${point(section.earned)}</small></div></th></tr>
@@ -33,8 +29,8 @@ function scorecard(model, logo) {
     <tr><td colspan="2">Representative (SR): <b>${escape(model.name)}</b></td></tr><tr><td colspan="2">Community: ${escape(model.community)}</td></tr></table>
     ${model.sections.slice(0, 3).map(renderSection).join("")}</div><div class="scorecard-column"><table class="visit-table visit-times"><tr><td>Time In: ${escape(model.timeIn)}</td><td>Time Out: ${escape(model.timeOut)}</td></tr></table>
     ${model.sections.slice(3).map(renderSection).join("")}</div></div>
-    <div class="legend"><span>N/A — Not applicable · NMD — Not Much Discussed<br>? — Missing / unverified mapping; not a NO answer</span><span>* Full credit not allowed · ** Some credit allowed<br>Efficiency Rating shows section points; chart shows percentages.</span></div>
-    ${model.issues.length ? '<div class="mapping-status">Data verification issues are listed after the narratives. Stored scoring is preserved.</div>' : ''}${footer}</section>`;
+    <div class="legend"><span>N/A — Not applicable · NMD — Not Much Discussed<br>N/A receives full possible points in YES.</span><span>* Full credit not allowed · ** Some credit allowed<br>Efficiency Rating shows section points; chart shows percentages.</span></div>
+    ${footer}</section>`;
 }
 function narrativeTopic(topic) {
   const list = values => values.length ? values.map(value => `<li>${escape(value)}</li>`).join("") : '<li class="missing">Not recorded.</li>';
@@ -75,15 +71,14 @@ function buildHTML(data, options = {}) {
     <div class="cover-center"><div class="confidential">CONFIDENTIAL</div><div class="cover-name">${escape(model.name)}</div><div class="cover-community">${escape(model.community)}</div><div class="cover-date">${escape(model.visitDate)}</div></div><a class="website" href="https://www.NewHomeMysteryShops.com">www.NewHomeMysteryShops.com</a></section>`;
   const narrative = `<section class="page narrative" id="narrative-source">${preview(model)}<div class="narrative-body"><header class="narrative-header">Sales Representative (SR): ${escape(model.name)}<div class="date">Evaluation Date: ${escape(model.visitDate)}</div></header><h1 class="narrative-main">Performance Breakdown: Strengths &amp; Opportunities</h1>${model.narratives.map(narrativeTopic).join("")}</div></section>`;
   const notes = [];
+  for (const section of model.sections) if (section.note) notes.push(`<h2 class="topic-title">${escape(section.title)}</h2><p>${escape(section.note)}</p>`);
   if (model.evaluatorNote) notes.push(`<h2 class="topic-title">Final evaluator note</h2><p>${escape(model.evaluatorNote)}</p>`);
   for (const section of model.sections) for (const q of section.questions) if (q.note) notes.push(`<h2 class="topic-title">${escape(section.title)} · ${escape(q.number)}</h2><p>${escape(q.note)}</p>`);
   const notesPage = notes.length ? `<section class="page narrative notes-source"><div class="narrative-body"><header class="narrative-header">${escape(model.name)}, Continued</header><h1 class="narrative-main">Evaluator Notes</h1>${notes.join("")}</div></section>` : "";
-  const auditItems = model.issues.map(i => `<li>${escape(i.code.replaceAll("_", " "))}: <code>${escape(i.field)}</code></li>`).join("");
-  const audit = model.issues.length ? `<section class="page narrative notes-source"><div class="narrative-body"><header class="narrative-header">${escape(model.name)}, Continued</header><h1 class="narrative-main">Report Data Verification</h1><p>Missing data has not been treated as a negative answer. Resolve these source mappings before publishing this report.</p><ul>${auditItems}</ul></div></section>` : "";
   const chart = `<section class="page chart-page">${preview(model)}<h1 class="chart-name">${escape(model.name)}</h1><h2 class="chart-title">Comparison Graph to Industry Averages</h2>${chartSVG(chartData)}${footer}</section>`;
   const css = fs.readFileSync(path.join(ROOT, "templates/report.styles.css"), "utf8");
   const template = fs.readFileSync(path.join(ROOT, "templates/report.template.html"), "utf8");
-  return { html: template.replace("{{CSS}}", () => css).replace("{{PAGES}}", () => cover + scorecard(model, logo) + narrative + notesPage + audit + chart), model, chartData };
+  return { html: template.replace("{{CSS}}", () => css).replace("{{PAGES}}", () => cover + scorecard(model, logo) + narrative + notesPage + chart), model, chartData };
 }
 
 async function paginate(page, name) {
@@ -184,10 +179,22 @@ async function generatePDF(data, options = {}) {
     args: ["--no-sandbox", "--disable-setuid-sandbox"] });
   try {
     const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on('request', request => /^(data:|about:)/.test(request.url()) ? request.continue() : request.abort());
     await page.emulateMediaType("print");
     await page.setViewport({ width: 1056, height: 816, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: "load", timeout: 30000 });
     await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map(image => image.decode())); });
+    await page.evaluate(() => {
+      const sheet=document.querySelector('.scorecard');
+      if (!sheet) return;
+      const footer=sheet.querySelector('.footer'), legend=sheet.querySelector('.legend');
+      for (let size=7.3; size>=6.0; size-=0.1) {
+        for (const table of sheet.querySelectorAll('.score-table')) table.style.fontSize=size+'pt';
+        if (legend.getBoundingClientRect().bottom < footer.getBoundingClientRect().top-8) return;
+      }
+      throw new Error('Scorecard is too long for a readable single page');
+    });
     const pageCount = await paginate(page, model.name);
     if (model.previewLabel) await page.evaluate(label => {
       for (const sheet of document.querySelectorAll('.page')) {

@@ -1,41 +1,14 @@
-const fs = require("fs");
-const path = require("path");
-const { uploadToNocoBase } = require("./upload.service");
-
+'use strict';
+// Compatibility entry point only. The /process-evaluation pipeline imports
+// services/pdf.service.js directly and owns its own upload/result write.
+const {generatePDF}=require('../pdf.service');
 async function generateEvaluationPDF(data) {
-  console.log("📄 PDF GENERATION START");
-
-  const fileName = `evaluation_${data.evaluation_id}.pdf`;
-  const filePath = path.join(process.cwd(), "uploads", "pdfs", fileName);
-
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-
-  const content = `
-EVALUATION REPORT
-
-ID: ${data.evaluation_id}
-TOTAL SCORE: ${data.scoreResult.total_score}
-GRADE: ${data.scoreResult.grade}
-
-QUALITY: ${data.quality_status}
-TIER: ${data.performance_tier}
-
-AI SUMMARY:
-${data.aiResult.ai_summary}
-`;
-
-  fs.writeFileSync(filePath, content);
-
-  console.log("📄 PDF CREATED:", filePath);
-
-  const uploaded = await uploadToNocoBase(filePath, fileName);
-
-  return {
-    filePath,
-    uploadedFile: uploaded,
-  };
+  if (!data?.responses?.evaluation?.sections) {
+    throw new Error('generateEvaluationPDF requires data.responses containing the full evaluation snapshot; scoreResult alone cannot produce the scorecard');
+  }
+  const pdf=await generatePDF(data);
+  const {uploadToNocoBase}=require('./upload.service');
+  const uploaded=await uploadToNocoBase(pdf.filePath,pdf.fileName);
+  return {...pdf,uploadedFile:uploaded};
 }
-
-module.exports = {
-  generateEvaluationPDF,
-};
+module.exports={generateEvaluationPDF};

@@ -1,110 +1,153 @@
 "use strict";
-const fs = require("fs");
-const axios = require("axios");
-const FormData = require("form-data");
-const { generatePDF } = require("./pdf.service");
-const { generateChartData } = require("./chart.service");
-const { buildReportModel, parseSnapshot, number } = require("./report.model");
-
-// Only established collection fields are used here. No survey weights are recalculated.
-async function processEvaluation(evaluationId) {
-  if (!/^\d+$/.test(String(evaluationId))) throw new Error("A numeric evaluationId is required");
-  const base = process.env.BASE_URL;
-  const headers = { Authorization: `Bearer ${process.env.NOCOBASE_TOKEN}` };
-  const client = axios.create({ baseURL: base, headers, timeout: 30000 });
-  const response = await client.get(`/api/evaluation:get/${evaluationId}`);
-  const evaluation = response.data?.data;
-  if (!evaluation) throw new Error("Evaluation not found");
-  const snapshot = parseSnapshot(evaluation.responses_json);
-  const source = snapshot.evaluation;
-  if (!source || !Array.isArray(source.sections)) throw new Error("Missing evaluation.responses_json.evaluation.sections; report not published");
-  const existingResponse = await client.get("/api/evaluation_results:list", {
-    params: { filter: JSON.stringify({ evaluation_id: evaluation.id }), pageSize: 2 },
-  });
-  const existing = existingResponse.data?.data;
-  if (!Array.isArray(existing)) throw new Error("Invalid evaluation_results response");
-  if (existing.length > 1) throw new Error("Multiple stored results for this evaluation; select the authoritative result before regeneration");
-  const stored = existing[0];
-  const scores = source.scores || {};
-  const total = number(scores.total_score) ?? number(evaluation.total_score);
-  const percentage = number(scores.percentage) ?? number(evaluation.percentage);
-  for (const field of ["total_score", "percentage"]) {
-    if (number(scores[field]) !== null && number(evaluation[field]) !== null &&
-        number(scores[field]) !== number(evaluation[field])) {
-      throw new Error(`Snapshot scores.${field} differs from evaluation.${field}; resolve before publication`);
-    }
-  }
-  const reportData = {
-    evaluation_id: evaluation.id,
-    sales_rep_name: source.sales_rep?.full_name,
-    community_name: source.metadata?.community_name,
-    metadata: { ...source.metadata,
-      time_in: source.metadata?.time_in ?? source.shop?.time_in,
-      time_out: source.metadata?.time_out ?? source.shop?.time_out },
-    total_score: total, percentage, responses: snapshot,
-    evaluator_note: source.final_evaluator_note,
-    stored_result: stored,
-    sections: stored?.ai_analysis_json?.sections || [],
-  };
-  const preflight = buildReportModel(reportData);
-  const blocking = preflight.issues.filter(i => i.severity === "error" && i.code !== "stored_result_not_checked");
-  if (blocking.length) {
-    // Paths and diagnostic codes only. Never log the source record, tokens, or request config.
-    throw new Error(`Report data needs verification: ${blocking.slice(0, 8).map(i => `${i.code} (${i.field})`).join("; ")}. No AI request, attachment upload, or result write performed.`);
-  }
-  let aiResult;
-  if (stored) {
-    // Re-render existing visit-specific analysis, without rewriting historic coaching.
-    aiResult = { ...(stored.ai_analysis_json || {}),
-      executive_summary: stored.ai_analysis_json?.executive_summary ?? stored.ai_summary,
-      ai_model: stored.ai_model };
-  } else {
-    const { generateInsights } = require("./openai.evaluation");
-    aiResult = await generateInsights({ sales_rep: source.sales_rep || {}, scores,
-      sections: source.sections, final_evaluator_note: source.final_evaluator_note || "" });
-  }
-  reportData.sections = aiResult.sections || [];
-  const chartData = generateChartData({ sections: source.sections, percentage });
-  const pdf = await generatePDF(reportData);
-  if (!pdf.filePath || !fs.existsSync(pdf.filePath)) throw new Error("PDF generation failed");
-  const form = new FormData();
-  form.append("file", fs.createReadStream(pdf.filePath));
-  const upload = await client.post("/api/attachments:create", form, { headers: form.getHeaders() });
-  const attachment = upload.data?.data;
-  if (!attachment?.id) throw new Error("Attachment upload returned no ID; result not modified");
-  if (stored) {
-    // Layout regeneration must never overwrite stored scores or narrative analysis.
-    await client.post("/api/evaluation_results:update", { pdf_report: [{ id: attachment.id }] },
-      { params: { filterByTk: stored.id } });
-  } else {
-    const narrativeSections = aiResult.sections || [];
-    await client.post("/api/evaluation_results:create", {
-      evaluation_id: evaluation.id, total_score: total, max_score: preflight.possible, percentage,
-      section_scores: Object.fromEntries(preflight.sections.map(s => [s.key,
-        { score: s.earned, possible: s.possible, percentage: s.percentage }])),
-      ai_summary: aiResult.executive_summary || "",
-      ai_strengths: narrativeSections.flatMap(s => s.strengths || []).join("\n"),
-      ai_weaknesses: narrativeSections.flatMap(s => s.opportunities || []).join("\n"),
-      ai_recommendations: narrativeSections.flatMap(s => s.opportunities || []).slice(0, 10).join("\n"),
-      ai_model: aiResult.ai_model, ai_prompt_version: "v3",
-      input_tokens: aiResult.input_tokens, output_tokens: aiResult.output_tokens,
-      processing_time_ms: aiResult.processing_time_ms, status: "completed", processed_at: new Date().toISOString(),
-      responses_snapshot: snapshot, industry_benchmark_comparison: chartData,
-      ai_analysis_json: { executive_summary: aiResult.executive_summary, sections: narrativeSections, ai_model: aiResult.ai_model },
-      pdf_report: [{ id: attachment.id }],
-    });
-  }
-  const verification = await client.get("/api/evaluation_results:list", {
-    params: { filter: JSON.stringify({ evaluation_id: evaluation.id }), pageSize: 2 },
-  });
-  const saved = verification.data?.data;
-  if (!Array.isArray(saved) || saved.length !== 1 ||
-      number(saved[0].total_score) !== total || number(saved[0].percentage) !== percentage ||
-      number(saved[0].max_score) !== preflight.possible) {
-    throw new Error("Saved result verification failed after write; inspect this evaluation before retrying");
-  }
-  return { success: true, evaluation_id: evaluation.id, sales_rep_name: reportData.sales_rep_name,
-    community_name: reportData.community_name, pdf_path: pdf.filePath, score_verified: true,
-    report_issues: pdf.issues.filter(i => i.code !== "stored_result_not_checked") };
+const fs=require('fs');
+const crypto=require('crypto');
+const {validateSnapshot,buildReportModel,parseSnapshot,number,safeURL}=require('./report.model');
+const {generateChartData}=require('./chart.service');
+const {PROMPT_VERSION,validateAnalysis}=require('./openai.evaluation');
+const active=new Map();
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value==='object') return Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])]));
+  return value;
 }
-module.exports = { processEvaluation };
+const hash=value=>crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
+function id(value) {
+  if (typeof value==='number' && !Number.isSafeInteger(value)) throw new Error('Send large IDs as strings');
+  const result=String(value??'');
+  if (!/^[1-9]\d*$/.test(result)) throw new Error('A positive numeric evaluationId is required');
+  return result;
+}
+function checkRecord(record,expectedId) {
+  if (!record || String(record.id)!==expectedId) throw new Error('Evaluation not found or ID mismatch');
+  const snapshot=validateSnapshot(record.responses_json);
+  if (!record.submitted_at || record.status!=='submitted') throw new Error('Only submitted evaluations can generate reports');
+  for (const key of ['total_score','percentage']) if (number(record[key])===null || Math.abs(number(record[key])-number(snapshot.evaluation.scores[key]))>.011)
+    throw new Error(`Snapshot scores.${key} differs from evaluation.${key}`);
+  return snapshot;
+}
+function recordFingerprint(record) {
+  return hash({responses:parseSnapshot(record.responses_json),total_score:record.total_score,
+    percentage:record.percentage,submitted_at:record.submitted_at,status:record.status,
+    nhms_shop_id:record.nhms_shop_id});
+}
+function createProcessor(deps={}) {
+  return async function run(evaluationId) {
+    const evaluationKey=id(evaluationId);
+    let client=deps.client;
+    if (!client) {
+      const base=process.env.NOCOBASE_URL||process.env.BASE_URL;
+      if (!base||!process.env.NOCOBASE_TOKEN) throw new Error('Set NOCOBASE_URL (or BASE_URL) and NOCOBASE_TOKEN');
+      client=require('axios').create({baseURL:base.replace(/\/+$/,''),
+        headers:{Authorization:`Bearer ${process.env.NOCOBASE_TOKEN}`},timeout:30000});
+    }
+    const getEvaluation=async()=> (await client.get('/api/evaluation:get',{params:{filterByTk:evaluationKey}})).data?.data;
+    const getResults=async()=>{
+      const rows=(await client.get('/api/evaluation_results:list',{params:{
+        filter:JSON.stringify({evaluation_id:{$eq:evaluationKey}}),pageSize:2,appends:['pdf_report']}})).data?.data;
+      if (!Array.isArray(rows)||rows.length>1) throw new Error('Expected zero or one evaluation result; resolve duplicate results before retrying');
+      if (rows.some(r=>String(r.evaluation_id)!==evaluationKey)) throw new Error('Result belongs to another evaluation');
+      return rows;
+    };
+    const record=await getEvaluation();
+    const snapshot=checkRecord(record,evaluationKey), source=snapshot.evaluation;
+    // Validate report identity/date before spending tokens or creating a PDF.
+    buildReportModel({responses:snapshot,total_score:record.total_score,percentage:record.percentage});
+    const fingerprint=recordFingerprint(record), sourceHash=hash(snapshot);
+    const existing=(await getResults())[0];
+    const existingHash=hash(existing||null);
+    const modelName=process.env.OPENAI_MODEL||'gpt-4o-mini';
+    const cached=typeof existing?.ai_analysis_json==='string' ? JSON.parse(existing.ai_analysis_json) : existing?.ai_analysis_json;
+    let ai;
+    if (cached?.source_hash===sourceHash && cached?.prompt_version===PROMPT_VERSION && cached?.ai_model===modelName &&
+        cached.refined_evaluation && Array.isArray(cached.refined_notes)) {
+      validateAnalysis(cached);
+      validateSnapshot({evaluation:cached.refined_evaluation});
+      ai={...cached,input_tokens:0,output_tokens:0,processing_time_ms:0};
+    } else {
+      ai=await (deps.generateInsights||require('./openai.evaluation').generateInsights)(source);
+    }
+    const refinedSource=ai.refined_evaluation;
+    if (!refinedSource) throw new Error('Missing refined notes report input');
+    const withoutNotes=value=>{
+      const copy=JSON.parse(JSON.stringify(value));
+      delete copy.final_evaluator_note;
+      for (const section of copy.sections) delete section.evaluator_section_note;
+      return copy;
+    };
+    if (hash(withoutNotes(source))!==hash(withoutNotes(refinedSource)))
+      throw new Error('Note refinement changed non-note evaluation data; report not published');
+    validateAnalysis(ai);
+    const shopId=record.nhms_shop_id ?? source.shop?.id;
+    if (record.nhms_shop_id!=null && source.shop?.id!=null && String(record.nhms_shop_id)!==String(source.shop.id))
+      throw new Error('Evaluation shop differs from snapshot shop');
+    let videoURL=null;
+    if (shopId) {
+      const videos=(await client.get('/api/edited_videos:list',{params:{
+        filter:JSON.stringify({nhms_shop_id:{$eq:String(shopId)}}),fields:['id','nhms_shop_id','url'],pageSize:2}})).data?.data;
+      if (!Array.isArray(videos)) throw new Error('Invalid edited video response');
+      if (videos.some(v=>String(v.nhms_shop_id)!==String(shopId))) throw new Error('Video belongs to another shop');
+      if (videos.length>1) throw new Error('Multiple edited videos exist; confirm the final video selection rule before generating this report');
+      if (videos.length && !(videoURL=safeURL(videos[0].url))) throw new Error('Invalid edited video URL');
+    }
+    const reportData={evaluation_id:record.id,sales_rep_name:source.sales_rep?.full_name,
+      community_name:source.metadata?.community_name,metadata:source.metadata,video_url:videoURL,
+      total_score:record.total_score,percentage:record.percentage,
+      responses:{...snapshot,evaluation:refinedSource},evaluator_note:refinedSource.final_evaluator_note,
+      sections:ai.sections};
+    const reportModel=buildReportModel(reportData);
+    const pdf=await (deps.generatePDF||require('./pdf.service').generatePDF)(reportData);
+    if (!pdf?.filePath||!fs.existsSync(pdf.filePath)) throw new Error('PDF generation failed');
+    const fd=fs.openSync(pdf.filePath,'r');
+    try {const signature=Buffer.alloc(5);fs.readSync(fd,signature,0,5,0);if(signature.toString()!=='%PDF-')throw new Error('Output is not a real PDF');}
+    finally {fs.closeSync(fd);}
+    const assertUnchanged=async()=>{
+      const fresh=await getEvaluation();
+      checkRecord(fresh,evaluationKey);
+      if (recordFingerprint(fresh)!==fingerprint) throw new Error('Evaluation changed during generation; regenerate from the latest submitted answers');
+      if (hash((await getResults())[0]||null)!==existingHash) throw new Error('Result changed during generation; refresh before retrying');
+    };
+    await assertUnchanged();
+    let attachment;
+    if (deps.uploadPDF) attachment=await deps.uploadPDF(pdf,client);
+    else {
+      const FormData=require('form-data'),form=new FormData();
+      form.append('file',fs.createReadStream(pdf.filePath));
+      attachment=(await client.post('/api/attachments:create',form,{headers:form.getHeaders()})).data?.data;
+    }
+    if (!attachment?.id) throw new Error('Attachment upload returned no ID; result not modified');
+    await assertUnchanged();
+    const analysis={executive_summary:ai.executive_summary,sections:ai.sections,ai_model:ai.ai_model,
+      source_hash:sourceHash,prompt_version:PROMPT_VERSION,refined_notes:ai.refined_notes,refined_evaluation:refinedSource};
+    const payload={evaluation_id:record.id,total_score:reportModel.total,max_score:reportModel.possible,percentage:reportModel.percentage,
+      section_scores:Object.fromEntries(reportModel.sections.map(s=>[s.key,{score:s.earned,possible:s.possible,percentage:s.percentage}])),
+      ai_summary:ai.executive_summary,ai_strengths:ai.sections.flatMap(s=>s.strengths).join('\n'),
+      ai_weaknesses:ai.sections.flatMap(s=>s.opportunities).join('\n'),
+      ai_recommendations:ai.sections.flatMap(s=>s.opportunities).slice(0,10).join('\n'),
+      ai_model:ai.ai_model,ai_prompt_version:PROMPT_VERSION,input_tokens:ai.input_tokens,output_tokens:ai.output_tokens,
+      processing_time_ms:ai.processing_time_ms,status:'completed',processed_at:new Date().toISOString(),
+      responses_snapshot:snapshot,industry_benchmark_comparison:generateChartData(source),
+      ai_analysis_json:analysis,pdf_report:[{id:attachment.id}]};
+    if (existing) await client.post('/api/evaluation_results:update',payload,{params:{filterByTk:existing.id}});
+    else await client.post('/api/evaluation_results:create',payload);
+    const saved=(await getResults())[0];
+    const savedAI=typeof saved?.ai_analysis_json==='string'?JSON.parse(saved.ai_analysis_json):saved?.ai_analysis_json;
+    const attached=Array.isArray(saved?.pdf_report)?saved.pdf_report:saved?.pdf_report?[saved.pdf_report]:[];
+    if (!saved||number(saved.total_score)!==reportModel.total||number(saved.percentage)!==reportModel.percentage||
+        number(saved.max_score)!==reportModel.possible||savedAI?.source_hash!==sourceHash||
+        !attached.some(a=>String(a.id)===String(attachment.id)))
+      throw new Error('Saved result verification failed; inspect the result before retrying');
+    return {success:true,evaluation_id:record.id,result_id:saved.id,attachment_id:attachment.id,score_verified:true,
+      total_score:reportModel.total,percentage:reportModel.percentage,page_count:pdf.pageCount,
+      notes_requiring_attention:ai.refined_notes.filter(n=>['insufficient','review_needed'].includes(n.status)).map(n=>({key:n.key,status:n.status})),
+      report_issues:pdf.issues||[]};
+  };
+}
+const run=createProcessor();
+function processEvaluation(evaluationId) {
+  let key; try {key=id(evaluationId);} catch(error) {return Promise.reject(error);}
+  if (active.has(key)) return active.get(key);
+  const promise=run(key).finally(()=>active.delete(key));
+  active.set(key,promise);
+  return promise;
+}
+module.exports={processEvaluation,createProcessor,recordFingerprint,hash};
