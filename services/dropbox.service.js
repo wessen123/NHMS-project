@@ -58,7 +58,7 @@ class DropboxService {
     if (
       !process.env.DROPBOX_APP_SECRET
     ) {
-
+re
       throw new Error(
         "DROPBOX_APP_SECRET is not configured"
       );
