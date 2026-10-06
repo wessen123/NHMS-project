@@ -17,6 +17,11 @@ const communityController =
     "../controllers/community.controller"
   );
 
+router.post(
+  "/video-delete",
+  uploadController.deleteVideo
+);
+
 
 /* =========================================================
    ORDER UPLOAD LINK ROUTE
